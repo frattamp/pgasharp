@@ -34,7 +34,7 @@ export default function Landing({ onGetStarted }) {
           <span style={{ color: 'var(--green)' }}>field you enter</span>
         </h1>
         <p style={{ fontSize: 17, color: 'var(--muted)', lineHeight: 1.7, maxWidth: 520, margin: '0 auto 36px' }}>
-          Real-time PGA Tour data, DFS optimizer, ownership leverage, course history and live leaderboard — everything serious golf DFS players and bettors need in one place.
+          Real-time PGA Tour data, AI Pro Golf Analyst Chat Access, DFS optimizer, ownership leverage, course history and live leaderboard — everything serious golf DFS players and bettors need in one place.
         </p>
         <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
           <button onClick={onGetStarted} style={{
@@ -74,6 +74,7 @@ export default function Landing({ onGetStarted }) {
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 14 }}>
           {[
+            { icon: '🤖', title: 'AI Golf Analyst', desc: 'Ask anything — lineup advice, player breakdowns, course fits, betting angles. Our AI analyst has full access to live field data and answers like a sharp.', color: '#6366f1' },
             { icon: '⚡', title: 'DFS Optimizer', desc: 'Automatically builds the highest projected lineup under the $50k DraftKings cap. Lock players in, exclude fades, generate in seconds.', color: 'var(--gold)' },
             { icon: '📊', title: 'Ownership Leverage', desc: 'See which players are projected high relative to their ownership. Find the undervalued plays the field is sleeping on.', color: 'var(--green)' },
             { icon: '🔥', title: "Who's Hot", desc: 'Weighted form ratings for every player in the field. Last 3 starts weighted 3×. See who\'s Blazing Hot heading into the week.', color: '#f97316' },
@@ -81,7 +82,7 @@ export default function Landing({ onGetStarted }) {
             { icon: '🌤', title: 'Tournament Weather', desc: 'Round-by-round wind, gusts, rain and temperature. Know which rounds will see scoring suppressed before you lock.', color: '#60a5fa' },
             { icon: '📈', title: 'Live Leaderboard', desc: 'Real-time scores with strokes gained breakdowns by round. Expand any player to see full SG splits.', color: '#a78bfa' },
             { icon: '✂️', title: 'Cut Probability', desc: 'DataGolf win%, top 5%, top 10% and make cut predictions for every player in the slate.', color: 'var(--gold)' },
-            { icon: '🏆', title: 'Model Rankings', desc: 'DataGolf strokes gained model rankings. Sort by any SG category to find course fits fast.', color: 'var(--green)' },
+            { icon: '🏆', title: 'Model Rankings', desc: 'DataGolf\'s strokes gained model rankings. Sort by any SG category to find course fits fast.', color: 'var(--green)' },
           ].map(({ icon, title, desc, color }) => (
             <div key={title} style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 14, padding: '22px', transition: 'border-color 0.15s' }}
               onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--green-mid)'}

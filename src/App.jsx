@@ -3,6 +3,7 @@ import Terms from './Terms'
 import Auth from './Auth'
 import Landing from './Landing'
 import { supabase } from './supabase'
+import Chat from './Chat'
 
 const KEY = import.meta.env.VITE_DATAGOLF_KEY
 
@@ -2243,9 +2244,13 @@ useEffect(() => {
           <Terms />
         </div>
       )}
-
-
+{user && isLive && players.length > 0 && (
+        <Chat players={players} tournament={activeTournament} weatherData={weatherData} completedEvents={completedEvents} />
+      )}
     </div>
+
+
+    
   )
 }
 
