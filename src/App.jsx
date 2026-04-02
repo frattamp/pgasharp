@@ -28,6 +28,320 @@ const flipName = (n) => {
   return p.length === 2 ? `${p[1]} ${p[0]}` : n
 }
 
+const countryFlag = (code) => {
+  if (!code) return ''
+  const flags = {
+    'USA': '🇺🇸', 'ENG': '🏴󠁧󠁢󠁥󠁮󠁧󠁿', 'SCO': '🏴󠁧󠁢󠁳󠁣󠁴󠁿', 'WAL': '🏴󠁧󠁢󠁷󠁬󠁳󠁿', 'IRL': '🇮🇪',
+    'AUS': '🇦🇺', 'RSA': '🇿🇦', 'CAN': '🇨🇦', 'ESP': '🇪🇸', 'JPN': '🇯🇵',
+    'KOR': '🇰🇷', 'GER': '🇩🇪', 'SWE': '🇸🇪', 'NOR': '🇳🇴', 'DEN': '🇩🇰',
+    'FRA': '🇫🇷', 'BEL': '🇧🇪', 'ITA': '🇮🇹', 'ARG': '🇦🇷', 'COL': '🇨🇴',
+    'CHI': '🇨🇱', 'NZL': '🇳🇿', 'CHN': '🇨🇳', 'TPE': '🇹🇼', 'AUT': '🇦🇹',
+    'SUI': '🇨🇭', 'FIN': '🇫🇮', 'MEX': '🇲🇽', 'VEN': '🇻🇪', 'PUR': '🇵🇷',
+    'NIR': '🇬🇧', 'ZIM': '🇿🇼', 'NAM': '🇳🇦', 'THA': '🇹🇭', 'IND': '🇮🇳',
+    'POL': '🇵🇱', 'PHI': '🇵🇭', 'MAS': '🇲🇾', 'PAR': '🇵🇾', 'POR': '🇵🇹',
+    'NED': '🇳🇱', 'CZE': '🇨🇿', 'FIJ': '🇫🇯',
+  }
+  return flags[code] || ''
+}
+
+const PLAYER_COUNTRIES = {
+  // USA
+  'Scottie Scheffler': 'USA', 'Xander Schauffele': 'USA', 'Collin Morikawa': 'USA',
+  'Patrick Cantlay': 'USA', 'Wyndham Clark': 'USA', 'Tony Finau': 'USA',
+  'Justin Thomas': 'USA', 'Jordan Spieth': 'USA', 'Max Homa': 'USA',
+  'Keegan Bradley': 'USA', 'Sahith Theegala': 'USA', 'Chris Kirk': 'USA',
+  'Rickie Fowler': 'USA', 'Russell Henley': 'USA', 'Brian Harman': 'USA',
+  'Kurt Kitayama': 'USA', 'Denny McCarthy': 'USA', 'Eric Cole': 'USA',
+  'Davis Riley': 'USA', 'Lucas Glover': 'USA', 'Harris English': 'USA',
+  'Brendon Todd': 'USA', 'Sam Burns': 'USA', 'Billy Horschel': 'USA',
+  'Will Zalatoris': 'USA', 'Kevin Kisner': 'USA', 'Webb Simpson': 'USA',
+  'Bubba Watson': 'USA', 'Dustin Johnson': 'USA', 'Brooks Koepka': 'USA',
+  'Bryson DeChambeau': 'USA', 'Phil Mickelson': 'USA', 'Tiger Woods': 'USA',
+  'Matt Kuchar': 'USA', 'Kevin Streelman': 'USA', 'Zach Johnson': 'USA',
+  'Steve Stricker': 'USA', 'Jim Furyk': 'USA', 'Ryan Palmer': 'USA',
+  'Charley Hoffman': 'USA', 'Scott Stallings': 'USA', 'Harold Varner III': 'USA',
+  'Talor Gooch': 'USA', 'Cameron Young': 'USA', 'Maverick McNealy': 'USA',
+  'Beau Hossler': 'USA', 'Brendan Steele': 'USA', 'Kevin Na': 'USA',
+  'Ryan Moore': 'USA', 'John Huh': 'USA', 'Chesson Hadley': 'USA',
+  'Ryan Brehm': 'USA', 'Adam Svensson': 'USA', 'Scott Piercy': 'USA',
+  'Pat Perez': 'USA', 'James Hahn': 'USA', 'Tyler Duncan': 'USA',
+  'Joel Dahmen': 'USA', 'Patton Kizzire': 'USA', 'Andrew Putnam': 'USA',
+  'Peter Malnati': 'USA', 'Hank Lebioda': 'USA', 'Mark Hubbard': 'USA',
+  'Doug Ghim': 'USA', 'Richy Werenski': 'USA', 'Ben Griffin': 'USA',
+  'Austin Eckroat': 'USA', 'Jake Knapp': 'USA', 'Nick Dunlap': 'USA',
+  'Akshay Bhatia': 'USA', 'Luke Clanton': 'USA', 'Neal Shipley': 'USA',
+  'Jackson Suber': 'USA', 'Pierceson Coody': 'USA', 'Michael Thorbjornsen': 'USA',
+  'David Skinns': 'USA', 'Trace Crowe': 'USA', 'Ben Silverman': 'USA',
+  'Hayden Buckley': 'USA', 'MJ Daffue': 'USA', 'Justin Lower': 'USA',
+  'Nelson Ledesma': 'USA', 'Brandon Wu': 'USA', 'Harry Hall': 'USA',
+  'Joseph Bramlett': 'USA', 'Michael Kim': 'USA', 'Danny Willett': 'ENG',
+  'Nick Hardy': 'USA', 'Vince Whaley': 'USA', 'Sam Ryder': 'USA',
+  'Taylor Moore': 'USA', 'Chandler Phillips': 'USA', 'David Lipsky': 'USA',
+  'Zac Blair': 'USA', 'John Pak': 'USA', 'Bo Hoag': 'USA',
+  'Chase Seiffert': 'USA', 'Kevin Roy': 'USA', 'Callum Tarren': 'ENG',
+  'Adam Schenk': 'USA', 'Stephan Jaeger': 'GER', 'Chris Gotterup': 'USA',
+  'Ben Martin': 'USA', 'Aaron Baddeley': 'AUS', 'Johnson Wagner': 'USA',
+  'Bronson Burgoon': 'USA', 'Scott Brown': 'USA', 'Kramer Hickok': 'USA',
+  'Martin Trainer': 'USA', 'Matt NeSmith': 'USA', 'Troy Merritt': 'USA',
+  'Kevin Chappell': 'USA', 'Rod Pampling': 'AUS', 'John Senden': 'AUS',
+  'Vaughn Taylor': 'USA', 'Bill Haas': 'USA', 'Brice Garnett': 'USA',
+  'Will Gordon': 'USA', 'Ted Potter Jr': 'USA', 'Robert Streb': 'USA',
+  'Alex Smalley': 'USA', 'Nate Lashley': 'USA', 'Danny Lee': 'NZL',
+  'Joe Highsmith': 'USA', 'Adrien Saddier': 'FRA', 'Alejandro Tosti': 'ARG',
+  // Northern Ireland
+  'Rory McIlroy': 'NIR', 'Graeme McDowell': 'NIR', 'Darren Clarke': 'NIR',
+  'Padraig Harrington': 'IRL',
+  // England
+  'Tommy Fleetwood': 'ENG', 'Tyrrell Hatton': 'ENG', 'Matt Fitzpatrick': 'ENG',
+  'Lee Westwood': 'ENG', 'Justin Rose': 'ENG', 'Paul Casey': 'ENG',
+  'Luke Donald': 'ENG', 'Eddie Pepperell': 'ENG', 'Andy Sullivan': 'ENG',
+  'Chris Wood': 'ENG', 'Tom Lewis': 'ENG', 'Aaron Rai': 'ENG',
+  'Callum Shinkwin': 'ENG', 'Richard Bland': 'ENG', 'Marcus Armitage': 'ENG',
+  'Daniel Gavins': 'ENG', 'Jordan Smith': 'ENG', 'Matthew Jordan': 'ENG',
+  'Jack Senior': 'ENG', 'Dale Whitnell': 'ENG', 'David Horsey': 'ENG',
+  'Matt Wallace': 'ENG', 'Andrew Johnston': 'ENG', 'Oliver Wilson': 'ENG',
+  'Nick Dougherty': 'ENG', 'Ross Fisher': 'ENG', 'Simon Dyson': 'ENG',
+  // Scotland
+  'Robert MacIntyre': 'SCO', 'Calum Hill': 'SCO', 'Martin Laird': 'SCO',
+  'Russell Knox': 'SCO', 'Marc Warren': 'SCO', 'Stephen Gallacher': 'SCO',
+  'David Drysdale': 'SCO', 'Craig Lee': 'SCO', 'Grant Forrest': 'SCO',
+  'Ewen Ferguson': 'SCO', 'Connor Syme': 'SCO',
+  // Ireland
+  'Shane Lowry': 'IRL', 'Seamus Power': 'IRL', 'Pádraig Harrington': 'IRL',
+  'Niall Kearney': 'IRL', 'Cormac Sharvin': 'IRL', 'Jonathan Caldwell': 'IRL',
+  // Australia
+  'Jason Day': 'AUS', 'Adam Scott': 'AUS', 'Min Woo Lee': 'AUS',
+  'Cam Davis': 'AUS', 'Cameron Smith': 'AUS', 'Marc Leishman': 'AUS',
+  'Lucas Herbert': 'AUS', 'Matt Jones': 'AUS', 'Aaron Baddeley': 'AUS',
+  'Rod Pampling': 'AUS', 'John Senden': 'AUS', 'Brett Drewitt': 'AUS',
+  'Brad Kennedy': 'AUS', 'Blake Windred': 'AUS', 'David Bransdon': 'AUS',
+  'Rhein Gibson': 'AUS', 'Andrew Evans': 'AUS', 'Jake McLeod': 'AUS',
+  'Travis Smyth': 'AUS', 'David McKenzie': 'AUS', 'Matthew Griffin': 'AUS',
+  'Peter Wilson': 'AUS', 'James Nitties': 'AUS', 'Josh Younger': 'AUS',
+  // Canada
+  'Adam Hadwin': 'CAN', 'Corey Conners': 'CAN', 'Nick Taylor': 'CAN',
+  'Taylor Pendrith': 'CAN', 'Mackenzie Hughes': 'CAN', 'Roger Sloan': 'CAN',
+  'Michael Gligic': 'CAN', 'Stuart Macdonald': 'CAN', 'Ben Silverman': 'CAN',
+  'Jared du Toit': 'CAN', 'Austin Connelly': 'CAN', 'David Hearn': 'CAN',
+  'Graham DeLaet': 'CAN', 'Mike Weir': 'CAN', 'Stephen Ames': 'CAN',
+  // South Korea
+  'Sungjae Im': 'KOR', 'Si Woo Kim': 'KOR', 'Tom Kim': 'KOR',
+  'Byeong Hun An': 'KOR', 'KH Lee': 'KOR', 'Joohyung Kim': 'KOR',
+  'Seonghyeon Kim': 'KOR', 'Sangmoon Bae': 'KOR', 'Chan Kim': 'KOR',
+  'Kyoung-Hoon Lee': 'KOR', 'Bio Kim': 'KOR', 'Seungyul Noh': 'KOR',
+  // Japan
+  'Hideki Matsuyama': 'JPN', 'Ryo Hisatsune': 'JPN', 'Keita Nakajima': 'JPN',
+  'Rikuya Hoshino': 'JPN', 'Satoshi Kodaira': 'JPN', 'Yuta Ikeda': 'JPN',
+  'Brendan Jones': 'AUS', 'Shaun Norris': 'RSA', 'Toshinori Muto': 'JPN',
+  'Takumi Kanaya': 'JPN', 'Ryutaro Nagano': 'JPN', 'Kazuki Higa': 'JPN',
+  // South Africa
+  'Christiaan Bezuidenhout': 'RSA', 'Erik van Rooyen': 'RSA', 'Garrick Higgo': 'RSA',
+  'Louis Oosthuizen': 'RSA', 'Branden Grace': 'RSA', 'Charl Schwartzel': 'RSA',
+  'Ernie Els': 'RSA', 'Retief Goosen': 'RSA', 'Trevor Immelman': 'RSA',
+  'Justin Harding': 'RSA', 'Jacques Blaauw': 'RSA', 'Hennie du Plessis': 'RSA',
+  'Dean Burmester': 'RSA', 'Dylan Frittelli': 'RSA', 'Thriston Lawrence': 'RSA',
+  'Aldrich Potgieter': 'RSA', 'Daan Huizing': 'NED', 'Wil Besseling': 'NED',
+  // Spain
+  'Jon Rahm': 'ESP', 'Sergio Garcia': 'ESP', 'Miguel Angel Jimenez': 'ESP',
+  'Rafa Cabrera Bello': 'ESP', 'Pablo Larrazabal': 'ESP', 'Adri Arnaus': 'ESP',
+  'Jorge Campillo': 'ESP', 'Ivan Ballesteros': 'ESP', 'Sebastian Garcia Rodriguez': 'ESP',
+  // Norway
+  'Viktor Hovland': 'NOR', 'Kristoffer Ventura': 'NOR', 'Torbjorn Erikson': 'NOR',
+  // Sweden
+  'Ludvig Aberg': 'SWE', 'Alex Noren': 'SWE', 'Henrik Stenson': 'SWE',
+  'Sebastian Soderberg': 'SWE', 'Jesper Svensson': 'SWE', 'Joakim Lagergren': 'SWE',
+  'Oscar Lengden': 'SWE', 'Per Langfors': 'SWE', 'Christofer Blomstrand': 'SWE',
+  // Denmark
+  'Nicolai Hojgaard': 'DEN', 'Rasmus Hojgaard': 'DEN', 'Thorbjorn Olesen': 'DEN',
+  'Lucas Bjerregaard': 'DEN', 'Jeff Winther': 'DEN', 'Marcus Helligkilde': 'DEN',
+  // Germany
+  'Martin Kaymer': 'GER', 'Stephan Jaeger': 'GER', 'Alex Cejka': 'GER',
+  'Maximilian Kieffer': 'GER', 'Marcel Schneider': 'GER', 'Hurly Long': 'GER',
+  'Yannik Paul': 'GER', 'Matthias Schmid': 'GER',
+  // Austria
+  'Sepp Straka': 'AUT', 'Bernd Wiesberger': 'AUT', 'Matthias Schwab': 'AUT',
+  // France
+  'Victor Perez': 'FRA', 'Antoine Rozner': 'FRA', 'Adrien Saddier': 'FRA',
+  'Romain Langasque': 'FRA', 'Benjamin Hebert': 'FRA', 'Clement Sordet': 'FRA',
+  'Paul Barjon': 'FRA', 'Frederic Lacroix': 'FRA',
+  // Belgium
+  'Nicolas Colsaerts': 'BEL', 'Thomas Detry': 'BEL', 'Thomas Pieters': 'BEL',
+  // Italy
+  'Francesco Molinari': 'ITA', 'Renato Paratore': 'ITA', 'Edoardo Molinari': 'ITA',
+  'Guido Migliozzi': 'ITA', 'Lorenzo Scalise': 'ITA', 'Andrea Pavan': 'ITA',
+  // New Zealand
+  'Ryan Fox': 'NZL', 'Danny Lee': 'NZL', 'Michael Hendry': 'NZL',
+  'Mark Brown': 'NZL', 'Josh Geary': 'NZL',
+  // Chile
+  'Joaquin Niemann': 'CHI', 'Mito Pereira': 'CHI', 'Felipe Aguilar': 'CHI',
+  'Hugo Leon': 'CHI',
+  // Colombia
+  'Sebastian Munoz': 'COL', 'Camilo Villegas': 'COL', 'Nicolas Echavarria': 'COL',
+  'Jhonattan Vegas': 'VEN',
+  // Mexico
+  'Abraham Ancer': 'MEX', 'Carlos Ortiz': 'MEX', 'Roberto Diaz': 'MEX',
+  'Rodolfo Cazaubon': 'MEX',
+  // Argentina
+  'Emiliano Grillo': 'ARG', 'Fabian Gomez': 'ARG', 'Alejandro Tosti': 'ARG',
+  'Angel Cabrera': 'ARG',
+  // China
+  'Haotong Li': 'CHN', 'Ashun Wu': 'CHN', 'Tianlang Guan': 'CHN',
+  // Taiwan
+  'CT Pan': 'TPE', 'CV Lee': 'TPE',
+  // Thailand
+  'Kiradech Aphibarnrat': 'THA', 'Jazz Janewattananond': 'THA',
+  'Pavit Tangkamolprasert': 'THA', 'Rattanon Wannasrichan': 'THA',
+  // India
+  'Anirban Lahiri': 'IND', 'Shubhankar Sharma': 'IND', 'Gaganjeet Bhullar': 'IND',
+  'SSP Chawrasia': 'IND',
+  // Zimbabwe
+  'Brendon de Jonge': 'ZIM', 'Scott Vincent': 'ZIM',
+  // Wales
+  'Jamie Donaldson': 'WAL', 'Rhys Davies': 'WAL', 'Stuart Manley': 'WAL',
+  'Ryan Evans': 'WAL', 'Liam Johnston': 'SCO',
+  // Switzerland
+  'Andre Romero': 'ARG', 'Joel Girrbach': 'SUI', 'Raphael Jacquelin': 'FRA',
+  // Finland
+  'Mikko Korhonen': 'FIN', 'Roope Kakko': 'FIN',
+  // Puerto Rico
+  'Rafael Campos': 'PUR', 'Juan Miguel Echevarria': 'PUR',
+  // Namibia
+  'Jovan Rebula': 'RSA',
+  // Netherlands
+  'Daan Huizing': 'NED', 'Wil Besseling': 'NED', 'Joost Luiten': 'NED',
+  // Czech Republic
+  'Ondrej Lieser': 'CZE',
+  // Fiji
+  'Vijay Singh': 'FIJ',
+  // Venezuela
+  'Jhonattan Vegas': 'VEN',
+  // Additional players
+  'JT Poston': 'USA', 'Keith Mitchell': 'USA', 'Trey Mullinax': 'USA',
+  'Andrew Novak': 'USA', 'Bud Cauley': 'USA', 'Ryan Gerard': 'USA',
+  'Jimmy Walker': 'USA', 'Danny Walker': 'USA', 'Ricky Barnes': 'USA',
+  'Brandt Snedeker': 'USA', 'Stewart Cink': 'USA', 'Jonathan Byrd': 'USA',
+  'Tim Herron': 'USA', 'John Rollins': 'USA', 'Carl Pettersson': 'SWE',
+  'Charlie Beljan': 'USA', 'Eric Axley': 'USA', 'Chez Reavie': 'USA',
+  'Arjun Atwal': 'IND', 'K.J. Choi': 'KOR', 'Y.E. Yang': 'KOR',
+  'Graeme Storm': 'ENG', 'Barry Lane': 'ENG', 'Peter Hanson': 'SWE',
+  'Robert Karlsson': 'SWE', 'Mikael Lundberg': 'SWE', 'Pelle Edberg': 'SWE',
+  'Jbe Kruger': 'RSA', 'Jaco van Zyl': 'RSA', 'Tjaart van der Walt': 'RSA',
+  'George Coetzee': 'RSA', 'Brandon Stone': 'RSA', 'Erik Van Rooyen': 'RSA',
+  'Lanto Griffin': 'USA', 'Robby Shelton': 'USA', 'Greyson Sigg': 'USA',
+  'Roger Sloan': 'CAN', 'Seamus Power': 'IRL', 'Shane Lowry': 'IRL',
+  'Pádraig Harrington': 'IRL', 'Graeme McDowell': 'NIR',
+  'Luke List': 'USA', 'Ryan Armour': 'USA', 'Roberto Castro': 'USA',
+  'Kyle Stanley': 'USA', 'D.J. Trahan': 'USA', 'Tag Ridings': 'USA',
+  'Kevin Tway': 'USA', 'Tom Hoge': 'USA', 'Sepp Straka': 'AUT',
+  'Ryo Ishikawa': 'JPN', 'Shingo Katayama': 'JPN', 'Yusaku Miyazato': 'JPN',
+  'Hiroshi Iwata': 'JPN', 'Prayad Marksaeng': 'THA', 'Thongchai Jaidee': 'THA',
+  'Chapchai Nirat': 'THA', 'Thitiphun Chuayprakong': 'THA',
+  'Bernd Ritthammer': 'GER', 'Florian Fritsch': 'GER', 'Marcel Siem': 'GER',
+  'Max Schmitt': 'GER', 'Moritz Lampert': 'GER',
+  'Nathan Kimsey': 'ENG', 'Jack Singh Brar': 'ENG', 'Todd Clements': 'ENG',
+  'Sam Horsfield': 'ENG', 'Jordan Wrisdale': 'ENG', 'David Carey': 'IRL',
+  'Gavin Moynihan': 'IRL', 'Dermot McElroy': 'NIR', 'Michael Hoey': 'NIR',
+  'Tain Lee': 'SCO', 'David Law': 'SCO', 'Craig Howie': 'SCO',
+  'James Morrison': 'ENG', 'Ashley Chesters': 'ENG', 'Laurie Canter': 'ENG',
+  'Richard McEvoy': 'ENG', 'Oliver Farr': 'WAL', 'Cyril Bouniol': 'FRA',
+  'Robin Roussel': 'FRA', 'Tom Vaillant': 'FRA', 'Julien Guerrier': 'FRA',
+  'Hugo Bastian': 'FRA', 'Victor Riu': 'FRA',
+  'Nacho Elvira': 'ESP', 'Alfredo Garcia-Heredia': 'ESP', 'Manuel Elvira': 'ESP',
+  'Borja Virto': 'ESP', 'Eduardo De La Riva': 'ESP',
+  'Santiago Tarrio': 'ESP', 'Pep Angles': 'ESP',
+  'Darius Van Driel': 'NED', 'Lars Van Meijel': 'NED', 'Rowin Caron': 'NED',
+  'Robin Williams': 'WAL', 'Rhys Enoch': 'WAL', 'Llewellyn Matthews': 'WAL',
+  'Kim Koivu': 'FIN', 'Tapio Pulkkanen': 'FIN', 'Toomas Koivula': 'FIN',
+  'Oliver Lindell': 'FIN', 'Sami Valimaki': 'FIN',
+  'Niklas Lemke': 'SWE', 'Joel Sjoholm': 'SWE', 'Anton Karlsson': 'SWE',
+  'Henrik Norlander': 'SWE', 'Rikard Karlberg': 'SWE',
+  'Espen Kofstad': 'NOR', 'Mikael Lindberg': 'NOR',
+  'Lucas Bjerregaard': 'DEN', 'Joachim B Hansen': 'DEN', 'Soren Kjeldsen': 'DEN',
+  'Thomas Bjorn': 'DEN',
+  'Matthieu Pavon': 'FRA', 'Gregoire Dupeyroux': 'FRA',
+  'John Catlin': 'USA', 'Scott Hend': 'AUS', 'Wade Ormsby': 'AUS',
+  'Andrew Dodt': 'AUS', 'Ashley Hall': 'AUS', 'Peter O\'Malley': 'AUS',
+  'Richard Green': 'AUS', 'Steven Jeffress': 'AUS',
+  'Marcus Fraser': 'AUS', 'Matthew Millar': 'AUS', 'Deyen Lawson': 'AUS',
+  'Unho Park': 'AUS', 'Kurt Barnes': 'AUS', 'Jarrod Lyle': 'AUS',
+  'Mikko Ilonen': 'FIN', 'Toni Hakula': 'FIN',
+  'Berry Henson': 'USA', 'Michael Gellerman': 'USA', 'Chase Johnson': 'USA',
+  'Cameron Percy': 'AUS', 'Alistair Presnell': 'AUS',
+  'Pablo Martin Benavides': 'ESP', 'Gonzalo Fernandez-Castano': 'ESP',
+  'Rafael Echenique': 'ARG', 'Maximo Munoz': 'ARG', 'Augusto Nunez': 'ARG',
+  'Smylie Kaufman': 'USA', 'Grayson Murray': 'USA', 'Richy Werenski': 'USA',
+  'Derek Fathauer': 'USA', 'Tom Lovelady': 'USA', 'Bronson La\'Cassie': 'AUS',
+  'Matt Giles': 'AUS', 'Michael Wright': 'AUS',
+  'Mikael Lindberg': 'SWE', 'Kristoffer Broberg': 'SWE',
+
+  // Missing players from rankings
+  'Jacob Bridgeman': 'USA', 'Sam Stevens': 'USA', 'Patrick Reed': 'USA',
+  'Daniel Berger': 'USA', 'Max McGreevy': 'USA', 'Ricky Castillo': 'USA',
+  'Rico Hoey': 'USA', 'Gary Woodland': 'USA', 'Max Greyserman': 'USA',
+  'Caleb Surratt': 'USA', 'Isaiah Salinda': 'USA', 'Trevor Cone': 'USA',
+  'Hayden Springer': 'USA', 'Noah Goodwin': 'USA', 'Mason Andersen': 'USA',
+  'Cameron Champ': 'USA', 'Paul Peterson': 'USA', 'Sean Crocker': 'USA',
+  'Andrew Wilson': 'USA', 'Anthony Kim': 'USA', 'Will Chandler': 'USA',
+  'Harry Higgs': 'USA', 'Andy Ogletree': 'USA', 'Michael La Sasso': 'USA',
+  'Jordan Gumberg': 'USA', 'Jason Kokrak': 'USA', 'Cameron Tringale': 'USA',
+  'Matthew Wolff': 'USA', 'Quade Cummins': 'USA', 'Davis Bryant': 'USA',
+  'Kevin Velo': 'USA', 'Peter Uihlein': 'USA', 'Ryggs Johnston': 'USA',
+  'Braden Thornberry': 'USA', 'Gunner Wiebe': 'USA', 'Hudson Swafford': 'USA',
+  'Erik Barnes': 'USA', 'Ben Kohles': 'USA', 'Dylan Wu': 'USA',
+  'Patrick Fishburn': 'USA', 'Gordon Sargent': 'USA', 'Carson Young': 'USA',
+  'Taylor Montgomery': 'USA', 'Martin Trainer': 'USA', 'Brian Campbell': 'USA',
+  'Jayden Schaper': 'RSA', 'Casey Jarvis': 'RSA', 'Hennie Du Plessis': 'RSA',
+  'Jacques Kruyswijk': 'RSA', 'Richard Sterne': 'RSA', 'Zander Lombard': 'RSA',
+  'Thomas Aiken': 'RSA', 'Darren Fichardt': 'RSA', 'Ockie Strydom': 'RSA',
+  'Daniel Hillier': 'NZL', 'Kazuma Kobori': 'NZL', 'Ben Campbell': 'NZL',
+  'Alex Fitzpatrick': 'ENG', 'Dan Bradbury': 'ENG', 'Brandon Robinson Thompson': 'ENG',
+  'Joe Dean': 'ENG', 'Richard Mansell': 'ENG', 'Matthew Baldwin': 'ENG',
+  'Matthew Southgate': 'ENG', 'Ian Poulter': 'ENG', 'Sam Bairstow': 'ENG',
+  'Tom McKibbin': 'NIR', 'Conor Purcell': 'IRL',
+  'Elvis Smylie': 'AUS', 'Jason Scrivener': 'AUS', 'David Micheluzzi': 'AUS',
+  'Matthew Riedel': 'AUS', 'Karl Vilips': 'AUS', 'Aaron Cockerill': 'CAN',
+  'Taylor Dickson': 'CAN', 'Richard Lee': 'CAN', 'Adam Svensson': 'CAN',
+  'Nico Echavarria': 'COL', 'Eugenio Chacarra': 'ESP', 'Angel Ayora': 'ESP',
+  'David Puig': 'ESP', 'Jose Luis Ballester': 'ESP', 'Ignacio Elvira Mijares': 'ESP',
+  'Alejandro Del Rey': 'ESP', 'Angel Hidalgo Portillo': 'ESP', 'Luis Masaveu': 'ESP',
+  'Rasmus Neergaard-Petersen': 'DEN', 'Jacob Skov Olesen': 'DEN', 'Niklas Norgaard': 'DEN',
+  'Jeff Winther': 'DEN', 'Jens Dantorp': 'SWE',
+  'Ugo Coussaud': 'FRA', 'Frederic LaCroix': 'FRA', 'Martin Couvra': 'FRA',
+  'David Ravetto': 'FRA', 'Alexander Levy': 'FRA', 'Julien Brun': 'FRA',
+  'Freddy Schott': 'GER', 'Nicolai Von Dellingshausen': 'GER', 'Jannik De Bruyn': 'GER',
+  'Max Rottluff': 'GER', 'Marcel Siem': 'GER', 'Matti Schmid': 'GER',
+  'Younghan Song': 'KOR', 'Yubin Jang': 'KOR',
+  'Yuto Katsuragawa': 'JPN', 'Jinichiro Kozuma': 'JPN', 'Kaito Onishi': 'JPN',
+  'Alexander Bjork': 'SWE', 'Bjorn Hellgren': 'SWE', 'Tim Widing': 'SWE',
+  'Marcus Kinhult': 'SWE', 'Vincent Norrman': 'SWE', 'Simon Forsstrom': 'SWE',
+  'Bjorn Akesson': 'SWE', 'Andreas Halvorsen': 'NOR',
+  'Johannes Veerman': 'NED', 'Joost Luiten': 'NED', 'Daan Huizing': 'NED',
+  'Scott Jamieson': 'SCO', 'Richie Ramsay': 'SCO', 'Hamish Brown': 'SCO',
+  'Lukas Nemecz': 'AUT', 'Matthias Schwab': 'AUT',
+  'Veer Ahlawat': 'IND', 'Shubhankar Sharma': 'IND',
+  'Francesco Laporta': 'ITA', 'Filippo Celli': 'ITA', 'Edoardo Molinari': 'ITA',
+  'Adrian Meronk': 'POL', 'Miguel Tabuena': 'PHI',
+  'Gavin Green': 'MAS', 'Fabrizio Zanotti': 'PAR',
+  'Ricardo Gouveia': 'POR', 'Chieh-Po Lee': 'TPE', 'C.T. Pan': 'TPE',
+  'Wenyi Ding': 'CHN', 'Matthieu Pavon': 'FRA', 'Matthis Besard': 'BEL',
+  'Max Kieffer': 'GER', 'Gregorio De Leo': 'ARG', 'Jeremy Paul': 'USA',
+  'Patrick Rodgers': 'USA', 'Austin Smotherman': 'USA', 'William Mouw': 'USA',
+  'Steven Fisk': 'USA', 'David Ford': 'USA', 'Lee Hodges': 'USA',
+  'Chad Ramey': 'USA', 'Mac Meissner': 'USA', 'Davis Thompson': 'USA',
+  'Matt McCarty': 'USA', 'Johnny Keefer': 'USA', 'Kevin Roy': 'USA',
+  'Ben Griffin': 'USA', 'Austin Eckroat': 'USA',
+}
+
+function PlayerName({ name, country }) {
+  const flag = countryFlag(country)
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+      {flag && <span style={{ fontSize: 14 }}>{flag}</span>}
+      <span style={{ color: 'var(--heading)', fontWeight: 600 }}>{name}</span>
+    </span>
+  )
+}
+
 const WMO_DESC = (code) => {
   if (code === 0)  return 'Clear'
   if (code <= 3)   return 'Partly Cloudy'
@@ -51,14 +365,12 @@ const NAV = [
   { id: 'stats',       label: 'Field SG Stats',   icon: '◑' },
   { id: 'leaderboard', label: 'Leaderboard',      icon: '◆' },
   { id: 'rankings',    label: 'Model Rankings',   icon: '◇' },
-  { id: 'settings',    label: 'Settings',         icon: '⚙️' },
 ]
 
 const NAV_GROUPS = [
   { label: 'Live',      ids: ['leaderboard', 'rankings'] },
   { label: 'Tools',     ids: ['hot', 'history', 'weather', 'cut', 'stats'] },
-  { label: 'DFS Tools', ids: ['lineup', 'own', 'optimizer'] },
-  { label: 'Account',   ids: ['settings'] },
+  { label: 'DFS Tools', ids: ['value', 'lineup', 'own', 'optimizer'] },
 ]
 
 // ── Hooks & Utilities ──────────────────────────────────────────────
@@ -293,15 +605,32 @@ async function fetchWeather(lat, lng, startDate, endDate) {
   const data = await res.json()
 
   const rounds = ['Thu', 'Fri', 'Sat', 'Sun']
-  const daily  = (data.daily?.time || []).map((date, i) => {
-    const wind     = Math.round(data.daily.windspeed_10m_max[i])
-    const gusts    = Math.round(data.daily.windgusts_10m_max[i])
-    const rain     = data.daily.precipitation_probability_max[i]
-    const temp     = Math.round(data.daily.temperature_2m_max[i])
+  const daily = (data.daily?.time || []).map((date, i) => {
     const dayOffset  = Math.round((new Date(date) - new Date(startDate)) / 86400000)
     const roundLabel = rounds[dayOffset] ? `Round ${dayOffset + 1} — ${rounds[dayOffset]}` : `Day ${dayOffset + 1}`
-    const conditions = gusts > 30 ? 'Windy' : wind > 15 ? 'Breezy' : rain > 40 ? 'Rainy' : 'Calm'
-    const outlook    = gusts > 30 ? 'Tough scoring' : wind > 15 ? 'Moderate difficulty' : rain > 40 ? 'Soft conditions' : 'Low scores expected'
+
+    // Calculate stats from hourly data between 6:00 and 19:00 only
+    const dayHourly = (data.hourly?.time || [])
+      .map((t, j) => {
+        const [hDate, hTime] = t.split('T')
+        const hour = parseInt(hTime.split(':')[0])
+        if (hDate !== date || hour < 6 || hour > 19) return null
+        return {
+          wind:  Math.round(data.hourly.windspeed_10m[j]),
+          gusts: Math.round(data.hourly.windgusts_10m[j]),
+          rain:  data.hourly.precipitation_probability[j],
+          temp:  Math.round(data.hourly.temperature_2m[j]),
+        }
+      })
+      .filter(Boolean)
+
+    const wind  = dayHourly.length > 0 ? Math.round(dayHourly.reduce((s, h) => s + h.wind, 0) / dayHourly.length)  : Math.round(data.daily.windspeed_10m_max[i])
+    const gusts = dayHourly.length > 0 ? Math.round(dayHourly.reduce((s, h) => s + h.gusts, 0) / dayHourly.length) : Math.round(data.daily.windgusts_10m_max[i])
+    const rain  = dayHourly.length > 0 ? Math.max(...dayHourly.map(h => h.rain))  : data.daily.precipitation_probability_max[i]
+    const temp  = dayHourly.length > 0 ? Math.max(...dayHourly.map(h => h.temp))  : Math.round(data.daily.temperature_2m_max[i])
+
+    const conditions = gusts > 25 || wind > 20 ? 'Windy' : gusts > 18 || wind > 12 ? 'Breezy' : rain > 40 ? 'Rainy' : 'Calm'
+    const outlook    = gusts > 25 || wind > 20 ? 'Tough scoring' : gusts > 18 || wind > 12 ? 'Moderate difficulty' : rain > 40 ? 'Soft conditions' : 'Low scores expected'
     return { round: roundLabel, date, wind, gusts, rain, temp, conditions, outlook }
   })
 
@@ -326,12 +655,15 @@ async function fetchWeather(lat, lng, startDate, endDate) {
 }
 
 async function fetchLiveData() {
-  const [dfsRes, predRes, sgRes] = await Promise.all([
+  const [dfsRes, predRes, sgRes, fieldRes] = await Promise.all([
     dgFetch('preds/fantasy-projection-defaults', { tour: 'pga', site: 'draftkings', slate: 'main', file_format: 'json' }),
     dgFetch('preds/pre-tournament', { tour: 'pga', file_format: 'json' }),
     dgFetch('preds/skill-ratings', { display: 'value', file_format: 'json' }),
+    dgFetch('field-updates', { tour: 'pga', file_format: 'json' }),
   ])
-  const [dfsData, predData, sgData] = await Promise.all([dfsRes.json(), predRes.json(), sgRes.json()])
+  const [dfsData, predData, sgData, fieldData] = await Promise.all([dfsRes.json(), predRes.json(), sgRes.json(), fieldRes.json()])
+  const countryMap = {}
+  for (const p of (fieldData.field || [])) countryMap[p.dg_id] = p.country
   const predMap = {}, sgMap = {}
   for (const p of (predData.baseline || [])) predMap[p.dg_id] = p
   for (const p of (sgData.players   || [])) sgMap[p.dg_id]   = p
@@ -357,6 +689,7 @@ async function fetchLiveData() {
       sgPutt:    sg.sg_putt  != null ? parseFloat(sg.sg_putt.toFixed(2))  : null,
       ownership: p.proj_ownership,
       dg_id:     p.dg_id,
+      country:   countryMap[p.dg_id] || null,
     }
   })
 }
@@ -434,7 +767,7 @@ function FieldPreview({ tournament, field }) {
       </div>
       <Card>
         <SortableTable columns={cols} rows={sorted.map(p => [
-          <span style={{ color: 'var(--heading)', fontWeight: 600 }}>{p.name}</span>,
+          <PlayerName name={p.name} country={p.country} />,
           <span style={{ fontSize: 12, background: 'var(--bg)', border: '1px solid var(--border)', padding: '2px 8px', borderRadius: 6, color: 'var(--muted)' }}>{p.country}</span>,
           <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 13, color: p.dg_rank <= 20 ? 'var(--green)' : 'var(--text)', fontWeight: p.dg_rank <= 20 ? 700 : 400 }}>{p.dg_rank === 9999 ? '—' : p.dg_rank}</span>,
           <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 13, color: 'var(--muted)' }}>{p.owgr_rank === 9999 ? '—' : p.owgr_rank}</span>,
@@ -464,7 +797,7 @@ function ValueFinder({ players }) {
       </div>
       <Card>
         <SortableTable columns={cols} rows={sorted.map(p => [
-          <span style={{ color: 'var(--heading)', fontWeight: 600 }}>{p.name}</span>,
+          <PlayerName name={p.name} country={p.country} />,
           <span style={{ color: 'var(--gold)', fontFamily: 'JetBrains Mono, monospace', fontWeight: 500 }}>${p.salary.toLocaleString()}</span>,
           <ProjBadge val={p.projPoints} />,
           <ValueBadge val={p.value} />,
@@ -608,7 +941,7 @@ function WhosHot({ players, completedEvents }) {
                     onMouseEnter={e => { if (!isOpen) e.currentTarget.style.background = '#f0fdf4' }}
                     onMouseLeave={e => { if (!isOpen) e.currentTarget.style.background = 'transparent' }}>
                     <td style={{ padding: '12px 18px', fontSize: 13, color: 'var(--muted)', fontFamily: 'JetBrains Mono, monospace' }}>{i + 1}</td>
-                    <td style={{ padding: '12px 18px', fontSize: 14, fontWeight: 600, color: 'var(--heading)' }}>{p.name}</td>
+                    <td style={{ padding: '12px 18px', fontSize: 14 }}><PlayerName name={p.name} country={p.country} /></td>
                     <td style={{ padding: '12px 18px' }}>
                       <span style={{ background: p.temp.bg, color: p.temp.color, border: `1px solid ${p.temp.border}`, padding: '3px 8px', borderRadius: 20, fontSize: 11, fontWeight: 600, whiteSpace: 'nowrap' }}>
                         {p.temp.label}
@@ -748,7 +1081,7 @@ function CourseHistory({ players, tournament }) {
               <tr key={i} style={{ borderBottom: '1px solid var(--border)', transition: 'background 0.1s' }}
                 onMouseEnter={e => e.currentTarget.style.background = '#f0fdf4'}
                 onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
-                <td style={{ padding: '10px 8px', fontSize: 12, fontWeight: 600, color: 'var(--heading)', maxWidth: 90, wordBreak: 'break-word' }}>{p.name}</td>
+                <td style={{ padding: '10px 8px', fontSize: 12, maxWidth: 90, wordBreak: 'break-word' }}><PlayerName name={p.name} country={p.country} /></td>
                 {years.map(y => {
                   const fin = history[p.dg_id]?.[y]
                   return (
@@ -822,7 +1155,7 @@ function Ownership({ players }) {
       </div>
       <Card>
         <SortableTable columns={cols} rows={sorted.map(p => [
-          <span style={{ color: 'var(--heading)', fontWeight: 600 }}>{p.name}</span>,
+          <PlayerName name={p.name} country={p.country} />,
           <span style={{ color: 'var(--gold)', fontFamily: 'JetBrains Mono, monospace', fontWeight: 500 }}>${p.salary.toLocaleString()}</span>,
           <OwnBadge val={p.ownership} />,
           <ProjBadge val={p.projPoints} />,
@@ -876,7 +1209,7 @@ function LineupBuilder({ players }) {
           const inLineup = lineup.find(l => l.name === p.name)
           const disabled = !inLineup && lineup.length === 6
           return [
-            <span style={{ color: disabled ? 'var(--muted)' : 'var(--heading)', fontWeight: 600 }}>{p.name}</span>,
+            <PlayerName name={p.name} country={p.country} />,
             <span style={{ color: disabled ? 'var(--muted)' : 'var(--gold)', fontFamily: 'JetBrains Mono, monospace', fontWeight: 500 }}>${p.salary.toLocaleString()}</span>,
             <ProjBadge val={p.projPoints} />,
             <ValueBadge val={p.value} />,
@@ -968,7 +1301,7 @@ function Optimizer({ players }) {
           const isLocked = locked.includes(p.name), isExcluded = excluded.includes(p.name)
           const inResult = result?.some(r => r.name === p.name)
           return [
-            <span style={{ color: isExcluded ? 'var(--muted)' : 'var(--heading)', fontWeight: 600, textDecoration: isExcluded ? 'line-through' : 'none', opacity: isExcluded ? 0.4 : 1 }}>{inResult && '✓ '}{p.name}</span>,
+            <span style={{ textDecoration: isExcluded ? 'line-through' : 'none', opacity: isExcluded ? 0.4 : 1 }}>{inResult && '✓ '}<PlayerName name={p.name} country={p.country} /></span>,
             <span style={{ color: isExcluded ? 'var(--muted)' : 'var(--gold)', fontFamily: 'JetBrains Mono, monospace', fontWeight: 500, opacity: isExcluded ? 0.4 : 1 }}>${p.salary.toLocaleString()}</span>,
             <ProjBadge val={p.projPoints} />,
             <ValueBadge val={p.value} />,
@@ -1019,7 +1352,7 @@ function WeatherImpact({ weatherData, tournament }) {
               <div style={{ fontSize: 10, color: 'var(--muted)', marginBottom: 10 }}>{w.date}</div>
               <span style={{ background: condBg(w.conditions), color: condColor(w.conditions), padding: '3px 10px', borderRadius: 20, fontSize: 11, fontWeight: 600 }}>{w.conditions}</span>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 5, marginTop: 10 }}>
-                {[['Wind', `${w.wind} mph`], ['Gusts', `${w.gusts} mph`], ['Rain', `${w.rain}%`], ['High', `${w.temp}°F`]].map(([l, v]) => (
+                {[['Avg Wind', `${w.wind} mph`], ['Avg Gusts', `${w.gusts} mph`], ['Rain', `${w.rain}%`], ['High', `${w.temp}°F`]].map(([l, v]) => (
                   <div key={l} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12 }}>
                     <span style={{ color: 'var(--muted)' }}>{l}</span>
                     <span style={{ fontWeight: 600, color: l === 'Gusts' && w.gusts > 28 ? 'var(--red)' : 'var(--heading)', fontFamily: 'JetBrains Mono, monospace' }}>{v}</span>
@@ -1090,7 +1423,7 @@ function CutProbability({ players }) {
           const isSafe = p.cutProb >= 75, isMid = p.cutProb >= 55
           const color  = isSafe ? 'var(--green-dark)' : isMid ? 'var(--gold)' : 'var(--red)'
           return [
-            <span style={{ color: 'var(--heading)', fontWeight: 600 }}>{p.name}</span>,
+            <PlayerName name={p.name} country={p.country} />,
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               <div style={{ width: 70, height: 6, background: 'var(--border)', borderRadius: 99, overflow: 'hidden' }}>
                 <div style={{ width: `${p.cutProb}%`, height: '100%', background: color, borderRadius: 99 }} />
@@ -1159,7 +1492,7 @@ const sgBar = (val, max, min) => {
       </div>
       <Card>
         <SortableTable columns={cols} rows={sorted.map(p => [
-          <span style={{ color: 'var(--heading)', fontWeight: 600 }}>{p.name}</span>,
+          <PlayerName name={p.name} country={p.country} />,
           sgBar(p.sgTotal, sgMaxs.sgTotal, sgMins.sgTotal),
           sgBar(p.sgOtt,   sgMaxs.sgOtt,   sgMins.sgOtt),
           sgBar(p.sgApp,   sgMaxs.sgApp,   sgMins.sgApp),
@@ -1181,7 +1514,16 @@ function Leaderboard() {
   const [activeRound, setActiveRound]   = useState(null)
   const [roundData, setRoundData]       = useState({})
   const [roundLoading, setRoundLoading] = useState(false)
-  const { sorted, sortKey, sortDir, toggle } = useSort(liveData, 'total', 'asc')
+  const [currentRound, setCurrentRound] = useState(1)
+  const sorted = [...liveData].sort((a, b) => {
+    const aNotStarted = a.thru === 0 || a.thru == null
+    const bNotStarted = b.thru === 0 || b.thru == null
+    if (aNotStarted && bNotStarted) return 0
+    if (aNotStarted) return 1
+    if (bNotStarted) return -1
+    return a.total - b.total
+  })
+  const { sortKey, sortDir, toggle } = useSort(liveData, 'total', 'asc')
 
   useEffect(() => {
     async function fetchLive() {
@@ -1190,11 +1532,21 @@ function Leaderboard() {
         const data = await res.json()
         setEventName(data.event_name)
         setLastUpdated(data.last_updated)
+        const activePlayers = (data.live_stats || []).filter(p => p.thru > 0)
+        const maxRound = activePlayers.length > 0
+          ? Math.max(...activePlayers.map(p => p.round_num || 1))
+          : 1
+        setCurrentRound(Math.min(maxRound, 4))
+        const fieldRes = await dgFetch('field-updates', { tour: 'pga', file_format: 'json' })
+        const fieldData = await fieldRes.json()
+        const countryMap = {}
+        for (const p of (fieldData.field || [])) countryMap[p.dg_id] = p.country
         setLiveData((data.live_stats || []).map(p => ({
           name: flipName(p.player_name), position: p.position,
           total: p.total, round: p.round, thru: p.thru,
           sgTotal: p.sg_total, sgOtt: p.sg_ott, sgApp: p.sg_app,
           sgArg: p.sg_arg, sgPutt: p.sg_putt, sgT2g: p.sg_t2g, dg_id: p.dg_id,
+          country: countryMap[p.dg_id] != null ? countryMap[p.dg_id] : (PLAYER_COUNTRIES[flipName(p.player_name)] || null),
         })))
       } catch (e) { console.error(e); setError('Failed to load leaderboard. Will retry in 60s.') }
       finally { setLoading(false) }
@@ -1229,7 +1581,7 @@ function Leaderboard() {
 
   const headers = [
     { label: 'Pos' }, { label: 'Player', key: 'name' }, { label: 'Total', key: 'total' },
-    { label: 'Round', key: 'round' }, { label: 'Thru', key: 'thru' },
+    { label: 'Today', key: 'round' }, { label: 'Thru', key: 'thru' },
     { label: 'SG Total', key: 'sgTotal' }, { label: 'SG App', key: 'sgApp' },
     { label: 'SG Putt', key: 'sgPutt' }, { label: 'Card' },
   ]
@@ -1244,7 +1596,7 @@ function Leaderboard() {
       <td colSpan={9} style={{ padding: 0, borderBottom: '2px solid var(--green-mid)' }}>
         <div style={{ background: 'var(--green-light)', padding: '20px 24px' }}>
           <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
-            {['Current', 1, 2, ...(p.round != null ? [3, 4] : [])].map((r) => (
+            {['Current', ...Array.from({length: p.position === 'CUT' ? Math.min(currentRound, 2) : currentRound}, (_, i) => i + 1)].map((r) => (
               <button key={r} onClick={() => r === 'Current' ? setActiveRound(null) : fetchRound(r)} style={{
                 padding: '6px 16px', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer', transition: 'all 0.15s',
                 background: (r === 'Current' && !activeRound) || activeRound === r ? 'var(--green)' : 'white',
@@ -1286,7 +1638,7 @@ function Leaderboard() {
             <div>
               <div style={{ fontSize: 11, color: 'var(--green)', fontWeight: 600, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 10 }}>Current Round Stats</div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, marginBottom: 12 }}>
-                {[['Total', scoreStr(p.total), p.total], ['Round', p.round == null ? 'CUT' : scoreStr(p.round), p.round ?? 0], ['SG Total', `${p.sgTotal > 0 ? '+' : ''}${p.sgTotal}`, p.sgTotal], ['SG T2G', `${p.sgT2g > 0 ? '+' : ''}${p.sgT2g}`, p.sgT2g]].map(([label, val, raw]) => (
+                {[['Total', scoreStr(p.total), p.total], ['Round', p.position === 'CUT' ? 'CUT' : p.round == null ? '—' : scoreStr(p.round), p.round ?? 0], ['SG Total', `${p.sgTotal > 0 ? '+' : ''}${p.sgTotal}`, p.sgTotal], ['SG T2G', `${p.sgT2g > 0 ? '+' : ''}${p.sgT2g}`, p.sgT2g]].map(([label, val, raw]) => (
                   <div key={label} style={{ background: 'white', borderRadius: 10, padding: '12px 16px', border: '1px solid var(--green-mid)' }}>
                     <div style={{ fontSize: 10, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: 1, fontWeight: 600, marginBottom: 6 }}>{label}</div>
                     <div style={{ fontSize: 22, fontWeight: 700, color: scoreColor(raw) }}>{val}</div>
@@ -1340,9 +1692,14 @@ function Leaderboard() {
                     onMouseEnter={e => { if (!isOpen) e.currentTarget.style.background = '#f0fdf4' }}
                     onMouseLeave={e => { if (!isOpen) e.currentTarget.style.background = 'transparent' }}>
                     <td style={{ padding: '13px 18px' }}><span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 13, fontWeight: 700, color: posColor(p.position) }}>{p.position}</span></td>
-                    <td style={{ padding: '13px 18px' }}><span style={{ color: 'var(--heading)', fontWeight: 600 }}>{p.name}</span></td>
-                    <td style={{ padding: '13px 18px' }}><span style={{ fontFamily: 'JetBrains Mono, monospace', fontWeight: 700, fontSize: 14, color: scoreColor(p.total) }}>{scoreStr(p.total)}</span></td>
-                    <td style={{ padding: '13px 18px' }}><span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 13, color: p.round == null ? 'var(--red)' : scoreColor(p.round) }}>{p.round == null ? 'CUT' : scoreStr(p.round)}</span></td>
+                    <td style={{ padding: '13px 18px' }}>
+                      <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        {p.country && <span style={{ fontSize: 14 }}>{countryFlag(p.country)}</span>}
+                        <span style={{ color: 'var(--heading)', fontWeight: 600 }}>{p.name}</span>
+                      </span>
+                    </td>
+                    <td style={{ padding: '13px 18px' }}><span style={{ fontFamily: 'JetBrains Mono, monospace', fontWeight: 700, fontSize: 14, color: p.thru === 0 || p.thru == null ? 'var(--muted)' : scoreColor(p.total) }}>{p.thru === 0 || p.thru == null ? '—' : scoreStr(p.total)}</span></td>
+                    <td style={{ padding: '13px 18px' }}><span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 13, color: p.position === 'CUT' ? 'var(--red)' : p.round == null ? 'var(--muted)' : scoreColor(p.round) }}>{p.position === 'CUT' ? 'CUT' : p.round == null ? '—' : scoreStr(p.round)}</span></td>
                     <td style={{ padding: '13px 18px' }}><span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 13, color: 'var(--muted)' }}>{p.thru === 18 ? 'F' : p.thru}</span></td>
                     <td style={{ padding: '13px 18px' }}><span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 13, color: p.sgTotal > 0 ? 'var(--green)' : 'var(--red)', fontWeight: 600 }}>{p.sgTotal > 0 ? '+' : ''}{p.sgTotal}</span></td>
                     <td style={{ padding: '13px 18px' }}><span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 13, color: p.sgApp > 0 ? 'var(--green)' : 'var(--red)' }}>{p.sgApp > 0 ? '+' : ''}{p.sgApp}</span></td>
@@ -1383,15 +1740,20 @@ function ModelRankings() {
   useEffect(() => {
     async function fetchRankings() {
       try {
-        const res  = await dgFetch('preds/skill-ratings', { display: 'value', file_format: 'json' })
-        const data = await res.json()
+        const [res, fieldRes] = await Promise.all([
+          dgFetch('preds/skill-ratings', { display: 'value', file_format: 'json' }),
+          dgFetch('field-updates', { tour: 'pga', file_format: 'json' }),
+        ])
+        const [data, fieldData] = await Promise.all([res.json(), fieldRes.json()])
+        const countryMap = {}
+        for (const p of (fieldData.field || [])) countryMap[p.dg_id] = p.country
         setLastUpdated(data.last_updated)
         setRankings((data.players || []).map((p, i) => ({
           rank: i + 1, name: flipName(p.player_name),
           index: parseFloat(p.sg_total.toFixed(3)), sgOtt: parseFloat(p.sg_ott.toFixed(3)),
           sgApp: parseFloat(p.sg_app.toFixed(3)), sgArg: parseFloat(p.sg_arg.toFixed(3)),
           sgPutt: parseFloat(p.sg_putt.toFixed(3)), drivingDist: parseFloat(p.driving_dist.toFixed(1)),
-          dg_id: p.dg_id,
+          dg_id: p.dg_id, country: countryMap[p.dg_id] != null ? countryMap[p.dg_id] : (PLAYER_COUNTRIES[flipName(p.player_name)] || null),
         })))
       } catch (e) { console.error(e); setError('Failed to load rankings.') }
       finally { setLoading(false) }
@@ -1473,7 +1835,7 @@ function ModelRankings() {
                     }}>{p.rank}</div>
                   </td>
                   <td style={{ padding: '13px 16px' }}>
-                    <span style={{ fontSize: 14, fontWeight: isTop10 ? 700 : 600, color: 'var(--heading)' }}>{p.name}</span>
+                    <PlayerName name={p.name} country={p.country} />
                   </td>
                   <td style={{ padding: '13px 16px', minWidth: 180 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -1714,7 +2076,7 @@ useEffect(() => {
     window.history.pushState(null, '', '#signin')
   }} />
   if (!user) return <Auth
-    onAuth={(u) => { setUser(u); setShowLanding(false); window.history.pushState(null, '', '#home') }}
+    onAuth={(u) => { setUser(u); setShowLanding(false); setPageState('leaderboard'); window.history.pushState(null, '', '#leaderboard') }}
     onBack={() => { setShowLanding(true); window.history.pushState(null, '', '#home') }}
   />
 
@@ -1744,10 +2106,9 @@ useEffect(() => {
         <div style={{ padding: '24px 22px 20px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div>
             <img src="/logo.png" alt="PGASharp" style={{ width: 180, display: 'block', mixBlendMode: 'multiply' }} />
-            <div style={{ marginTop: 6 }}>
-            <div style={{ fontSize: 11, color: 'var(--text)', fontWeight: 600 }}>Real-time golf data & tools</div>
-            
-          </div>
+            <div style={{ marginTop: 6, textAlign: 'center' }}>
+              <div style={{ fontSize: 11, color: 'var(--text)', fontWeight: 600 }}>Real-time golf data & tools</div>
+            </div>
           </div>
 
         </div>
@@ -1786,19 +2147,22 @@ useEffect(() => {
             {/* Nav groups */}
             {NAV_GROUPS.map(group => (
               <div key={group.label} style={{ marginBottom: 14 }}>
-                <div style={{ fontSize: 9, color: 'var(--heading)', letterSpacing: 1.5, textTransform: 'uppercase', padding: '0 10px', marginBottom: 4, fontWeight: 600 }}>{group.label}</div>
+                <div style={{ fontSize: 9, color: 'var(--muted)', letterSpacing: 2, textTransform: 'uppercase', padding: '4px 14px 4px', marginBottom: 2, fontWeight: 700 }}>{group.label}</div>
                 {NAV.filter(n => group.ids.includes(n.id)).map(n => (
-                  <button key={n.id} onClick={() => { setPage(n.id); setSidebarOpen(false) }} style={{
-                    display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '8px 12px',
+                    <button key={n.id} onClick={() => { setPage(n.id); setSidebarOpen(false) }} style={{
+                    display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '9px 14px',
                     background: page === n.id ? 'var(--green-light)' : 'transparent',
-                    border: 'none', borderRadius: 9,
+                    border: page === n.id ? '1px solid var(--green-mid)' : '1px solid transparent',
+                    borderRadius: 8,
                     color: page === n.id ? 'var(--green-dark)' : 'var(--muted)',
-                    cursor: 'pointer', fontSize: 13, fontFamily: 'Inter, sans-serif',
-                    fontWeight: page === n.id ? 600 : 400, marginBottom: 2, textAlign: 'left', transition: 'all 0.12s'
+                    cursor: 'pointer', fontSize: 12, fontFamily: 'Inter, sans-serif',
+                    fontWeight: page === n.id ? 700 : 400, marginBottom: 2, textAlign: 'left', transition: 'all 0.12s',
+                    letterSpacing: 0.1
                   }}
-                    onMouseEnter={e => { if (page !== n.id) e.currentTarget.style.background = 'var(--bg)' }}
-                    onMouseLeave={e => { if (page !== n.id) e.currentTarget.style.background = 'transparent' }}>
-                    <span style={{ fontSize: 13 }}>{n.icon}</span>{n.label}
+                    onMouseEnter={e => { if (page !== n.id) { e.currentTarget.style.background = 'var(--bg)'; e.currentTarget.style.color = 'var(--heading)' } }}
+                    onMouseLeave={e => { if (page !== n.id) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--muted)' } }}>
+                    <span style={{ fontSize: 14, width: 20, textAlign: 'center' }}>{n.icon}</span>
+                    <span>{n.label}</span>
                   </button>
                 ))}
               </div>
@@ -1807,13 +2171,25 @@ useEffect(() => {
         )}
 
  <UpcomingPanel schedule={schedule} isMobile={isMobile} />
-        <div style={{ padding: '12px 16px', borderTop: '1px solid var(--border)' }}>
-          <button onClick={() => { console.log('terms clicked'); setShowTerms(true) }} style={{ background: 'transparent', border: 'none', fontSize: 11, color: 'var(--muted)', cursor: 'pointer', padding: 0 }}>Terms of Service</button>
+        <div style={{ padding: '12px 16px', borderTop: '1px solid var(--border)', textAlign: 'center' }}>
+          <button onClick={() => { setShowTerms(true) }} style={{ background: 'transparent', border: 'none', fontSize: 13, fontWeight: 600, color: 'var(--muted)', cursor: 'pointer', padding: 0 }}>Terms of Service</button>
         </div>
       </div>
 
-      {/* Main */}
-      <div style={{ marginLeft: isMobile ? 0 : 230, flex: 1, padding: isMobile ? '0' : '40px 44px' }}>
+{/* Main */}
+      <div style={{ marginLeft: isMobile ? 0 : 230, flex: 1, padding: isMobile ? '0' : '0' }}>
+
+        {/* Desktop top bar */}
+        {!isMobile && (
+          <div style={{ padding: '12px 44px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'flex-end', alignItems: 'center', background: 'var(--surface)' }}>
+            <button onClick={() => setPage('settings')} style={{
+              background: page === 'settings' ? 'var(--green-light)' : 'var(--bg)',
+              border: `1px solid ${page === 'settings' ? 'var(--green-mid)' : 'var(--border)'}`,
+              borderRadius: 8, padding: '6px 14px', fontSize: 12, fontWeight: 600,
+              color: page === 'settings' ? 'var(--green-dark)' : 'var(--muted)', cursor: 'pointer'
+            }}>⚙️ Settings</button>
+          </div>
+        )}
 
         {/* Mobile header */}
         {isMobile && (
@@ -1822,16 +2198,19 @@ useEffect(() => {
               <button onClick={() => setSidebarOpen(true)} style={{ background: 'transparent', border: 'none', fontSize: 20, cursor: 'pointer', color: 'var(--heading)', padding: '4px' }}>☰</button>
               <img src="/logo.png" alt="PGASharp" style={{ height: 28 }} />
             </div>
-            {activeTournament && (
-              <div style={{ background: 'var(--green-light)', border: '1px solid var(--green-mid)', borderRadius: 8, padding: '4px 10px', display: 'flex', alignItems: 'center', gap: 6 }}>
-                <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--green-dark)' }}>{activeTournament.name.split(' ').slice(0, 2).join(' ')}</span>
-                <span style={{ background: 'var(--green)', color: 'white', fontSize: 7, fontWeight: 700, padding: '1px 5px', borderRadius: 6 }}>LIVE</span>
-              </div>
-            )}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              {activeTournament && (
+                <div style={{ background: 'var(--green-light)', border: '1px solid var(--green-mid)', borderRadius: 8, padding: '4px 10px', display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--green-dark)' }}>{activeTournament.name.split(' ').slice(0, 2).join(' ')}</span>
+                  <span style={{ background: 'var(--green)', color: 'white', fontSize: 7, fontWeight: 700, padding: '1px 5px', borderRadius: 6 }}>LIVE</span>
+                </div>
+              )}
+              <button onClick={() => { setPage('settings'); setSidebarOpen(false) }} style={{ background: 'transparent', border: 'none', fontSize: 18, cursor: 'pointer', color: 'var(--muted)', padding: '4px' }}>⚙️</button>
+            </div>
           </div>
         )}
 
-        <div style={{ padding: isMobile ? '16px 12px' : '0' }}>
+        <div style={{ padding: isMobile ? '16px 12px' : '40px 44px' }}>
           {showTerms ? <Terms onClose={() => setShowTerms(false)} /> : loading || !activeTournament ? <Loading /> : error ? (
             <ErrorBox message={error} />
           ) : isLive ? (
