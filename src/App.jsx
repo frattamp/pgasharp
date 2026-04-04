@@ -1240,7 +1240,8 @@ function Optimizer({ players }) {
   const [optoMap,     setOptoMap]     = useState({})
   const [simRunning,  setSimRunning]  = useState(false)
   const [simCount,    setSimCount]    = useState(1000)
-  const { sorted, sortKey, sortDir, toggle } = useSort(players, 'projPoints')
+  const withOpto = players.map(p => ({ ...p, optoPct: parseFloat(optoMap[p.name] || 0) }))
+  const { sorted, sortKey, sortDir, toggle } = useSort(withOpto, 'projPoints')
   const CAP = 50000
   const toggleLock    = (name) => { setExcluded(e => e.filter(n => n !== name)); setLocked(l => l.includes(name) ? l.filter(n => n !== name) : [...l, name]); setResult(null) }
   const toggleExclude = (name) => { setLocked(l => l.filter(n => n !== name)); setExcluded(e => e.includes(name) ? e.filter(n => n !== name) : [...e, name]); setResult(null) }
@@ -1315,7 +1316,7 @@ function Optimizer({ players }) {
     col('Salary',      'salary',     sortKey, sortDir, toggle),
     col('Proj Points', 'projPoints', sortKey, sortDir, toggle),
     col('Value',       'value',      sortKey, sortDir, toggle),
-    { label: 'Opto%' },
+    col('Opto%',       'optoPct',    sortKey, sortDir, toggle),
     { label: 'Lock' }, { label: 'Exclude' },
   ]
   const exportCSV = (lineups) => {
@@ -1454,7 +1455,20 @@ function Optimizer({ players }) {
             <span style={{ color: isExcluded ? 'var(--muted)' : 'var(--gold)', fontFamily: 'JetBrains Mono, monospace', fontWeight: 500, opacity: isExcluded ? 0.4 : 1 }}>${p.salary.toLocaleString()}</span>,
             <ProjBadge val={p.projPoints} />,
             <ValueBadge val={p.value} />,
-            <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 12, fontWeight: 700, color: optoMap[p.name] >= 50 ? 'var(--green)' : optoMap[p.name] >= 20 ? 'var(--gold)' : 'var(--muted)' }}>{optoMap[p.name] ? `${optoMap[p.name]}%` : '—'}</span>,
+            <div style={{ position: 'relative', display: 'inline-block' }} className="opto-cell">
+              <span style={{
+                display: 'inline-block', padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 700,
+                fontFamily: 'JetBrains Mono, monospace',
+                background: p.optoPct >= 50 ? 'var(--green-light)' : p.optoPct >= 20 ? 'var(--gold-light)' : 'var(--bg)',
+                color:      p.optoPct >= 50 ? 'var(--green)'       : p.optoPct >= 20 ? 'var(--gold)'       : 'var(--muted)',
+                border:     `1px solid ${p.optoPct >= 50 ? 'var(--green-mid)' : p.optoPct >= 20 ? '#fde68a' : 'var(--border)'}`,
+                cursor: 'help'
+              }}
+                title="Estimated % of simulations where this player appears in the optimal lineup (based on 1,000 Monte Carlo runs using DataGolf projections)"
+              >
+                {p.optoPct > 0 ? `${p.optoPct}%` : '—'}
+              </span>
+            </div>,
             <button onClick={() => toggleLock(p.name)} style={{ background: isLocked ? 'var(--green)' : 'var(--bg)', color: isLocked ? 'white' : 'var(--muted)', border: `1px solid ${isLocked ? 'var(--green)' : 'var(--border)'}`, padding: '4px 12px', borderRadius: 7, cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>{isLocked ? '🔒 Locked' : 'Lock'}</button>,
             <button onClick={() => toggleExclude(p.name)} style={{ background: isExcluded ? 'var(--red-light)' : 'var(--bg)', color: isExcluded ? 'var(--red)' : 'var(--muted)', border: `1px solid ${isExcluded ? '#fecaca' : 'var(--border)'}`, padding: '4px 12px', borderRadius: 7, cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>{isExcluded ? '✕ Out' : 'Exclude'}</button>,
           ]
