@@ -367,11 +367,12 @@ const NAV = [
   { id: 'leaderboard', label: 'Leaderboard',      icon: '◆' },
   { id: 'rankings',    label: 'Model Rankings',   icon: '◇' },
   { id: 'odds',        label: 'Betting Odds',     icon: '💰' },
+  { id: 'simulations', label: 'Simulation Lab',   icon: '🎲' },
 ]
 const NAV_GROUPS = [
   { label: 'Live',      ids: ['leaderboard', 'rankings'] },
   { label: 'Tools',     ids: ['hot', 'history', 'weather', 'cut', 'stats', 'odds'] },
-  { label: 'DFS Tools', ids: ['optimizer', 'value', 'lineup', 'own'] },
+  { label: 'DFS Tools', ids: ['optimizer', 'simulations', 'value', 'lineup', 'own'] },
 ]
 
 // ── Hooks & Utilities ──────────────────────────────────────────────
@@ -1227,7 +1228,327 @@ function LineupBuilder({ players }) {
     </div>
   )
 }
+function SimPctBadge({ val, thresholds = [10, 5] }) {
+  const v = parseFloat(val)
+  const color = v >= thresholds[0] ? 'var(--green)' : v >= thresholds[1] ? 'var(--gold)' : 'var(--muted)'
+  const bg    = v >= thresholds[0] ? 'var(--green-light)' : v >= thresholds[1] ? 'var(--gold-light)' : 'var(--bg)'
+  const border = v >= thresholds[0] ? 'var(--green-mid)' : v >= thresholds[1] ? '#fde68a' : 'var(--border)'
+  return (
+    <span style={{ display: 'inline-block', padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 700, fontFamily: 'JetBrains Mono, monospace', background: bg, color, border: `1px solid ${border}` }}>
+      {v > 0 ? `${val}%` : '—'}
+    </span>
+  )
+}
+function Simulations({ players }) {
+  const [simCount,      setSimCount]      = useState(2000)
+  const [simRunning,    setSimRunning]    = useState(false)
+  const [playerSims,    setPlayerSims]    = useState([])
+  const [lineupText,    setLineupText]    = useState('')
+  const [lineupResults, setLineupResults] = useState(null)
+  const [activeView,    setActiveView]    = useState('player')
+  const [lastRun,       setLastRun]       = useState(null)
+  const [progress,      setProgress]      = useState(0)
 
+  const randNormal = () => {
+    let u = 0, v = 0
+    while (u === 0) u = Math.random()
+    while (v === 0) v = Math.random()
+    return Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v)
+  }
+
+  const runPlayerSims = () => {
+    setSimRunning(true)
+    setProgress(0)
+    const batchSize = Math.ceil(simCount / 10)
+    const counts = {}
+    players.forEach(p => { counts[p.name] = { win: 0, top5: 0, top10: 0, top20: 0, madeCut: 0, totalPts: 0 } })
+    let done = 0
+    const runBatch = () => {
+      const end = Math.min(done + batchSize, simCount)
+      for (let i = done; i < end; i++) {
+        const simScores = players.map(p => ({
+          name: p.name,
+          score: p.projPoints + randNormal() * (p.projPoints * 0.18)
+        })).sort((a, b) => b.score - a.score)
+        const cutLine = Math.floor(simScores.length * 0.65)
+        simScores.forEach((p, idx) => {
+          if (!counts[p.name]) return
+          counts[p.name].totalPts += p.score
+          if (idx < cutLine) counts[p.name].madeCut++
+          if (idx === 0)  counts[p.name].win++
+          if (idx < 5)    counts[p.name].top5++
+          if (idx < 10)   counts[p.name].top10++
+          if (idx < 20)   counts[p.name].top20++
+        })
+      }
+      done = end
+      setProgress(Math.round((done / simCount) * 100))
+      if (done < simCount) {
+        setTimeout(runBatch, 0)
+      } else {
+        const results = players.map(p => ({
+          ...p,
+         winPct:   parseFloat(((counts[p.name].win     / simCount) * 100).toFixed(1)),
+        top5Pct:  parseFloat(((counts[p.name].top5    / simCount) * 100).toFixed(1)),
+        top10Pct: parseFloat(((counts[p.name].top10   / simCount) * 100).toFixed(1)),
+        top20Pct: parseFloat(((counts[p.name].top20   / simCount) * 100).toFixed(1)),
+        cutPct:   parseFloat(((counts[p.name].madeCut / simCount) * 100).toFixed(1)),
+        avgPts:   parseFloat((counts[p.name].totalPts / simCount).toFixed(1)),
+        })).sort((a, b) => parseFloat(b.winPct) - parseFloat(a.winPct))
+        setPlayerSims(results)
+        setLastRun(new Date())
+        setSimRunning(false)
+        setProgress(100)
+      }
+    }
+    setTimeout(runBatch, 50)
+  }
+
+  const evaluateLineups = () => {
+    const lines   = lineupText.trim().split('\n').filter(l => l.trim())
+    const lineups = lines.map(line => line.split(',').map(n => n.trim()))
+    if (!lineups.length || playerSims.length === 0) return
+    setSimRunning(true)
+    setTimeout(() => {
+      const lineupCounts = lineups.map(() => ({ cash: 0, top3: 0, totalScore: 0 }))
+      for (let i = 0; i < simCount; i++) {
+        const scoreMap = {}
+        players.forEach(p => { scoreMap[p.name] = p.projPoints + randNormal() * (p.projPoints * 0.18) })
+        const lineupScores = lineups.map(lineup => lineup.reduce((sum, name) => sum + (scoreMap[name] || 0), 0))
+        const sorted = [...lineupScores].sort((a, b) => b - a)
+        const cashLine = sorted[Math.floor(sorted.length * 0.5)] ?? 0
+        const maxScore = Math.max(...lineupScores)
+        lineupScores.forEach((score, idx) => {
+          lineupCounts[idx].totalScore += score
+          if (score >= cashLine) lineupCounts[idx].cash++
+          if (score === maxScore) lineupCounts[idx].top3++
+        })
+      }
+      setLineupResults(lineups.map((lineup, i) => ({
+        lineup,
+        cashRate: ((lineupCounts[i].cash      / simCount) * 100).toFixed(1),
+        winRate:  ((lineupCounts[i].top3      / simCount) * 100).toFixed(1),
+        avgScore: (lineupCounts[i].totalScore / simCount).toFixed(1),
+        salary:   lineup.reduce((s, name) => s + (players.find(p => p.name === name)?.salary || 0), 0),
+      })))
+      setSimRunning(false)
+    }, 50)
+  }
+
+  const exportSimCSV = () => {
+    const header = 'Player,Win%,Top5%,Top10%,Top20%,MadeCut%,AvgPts'
+    const rows   = playerSims.map(p => `${p.name},${p.winPct},${p.top5Pct},${p.top10Pct},${p.top20Pct},${p.cutPct},${p.avgPts}`)
+    const csv    = [header, ...rows].join('\n')
+    const blob   = new Blob([csv], { type: 'text/csv' })
+    const url    = URL.createObjectURL(blob)
+    const a      = document.createElement('a')
+    a.href = url; a.download = 'pgasharp_sims.csv'; a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  const { sorted: sortedSims, sortKey, sortDir, toggle } = useSort(playerSims, 'winPct')
+  const simsReady = playerSims.length > 0
+  const cols = [
+    col('Player',  'name',     sortKey, sortDir, toggle),
+    col('Win%',    'winPct',   sortKey, sortDir, toggle),
+    col('Top 5%',  'top5Pct',  sortKey, sortDir, toggle),
+    col('Top 10%', 'top10Pct', sortKey, sortDir, toggle),
+    col('Top 20%', 'top20Pct', sortKey, sortDir, toggle),
+    col('Cut%',    'cutPct',   sortKey, sortDir, toggle),
+    col('Avg Pts', 'avgPts',   sortKey, sortDir, toggle),
+  ]
+
+  const lastRunStr = lastRun
+    ? `Last simulated: ${lastRun.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+    : 'Last simulated: never'
+
+  return (
+    <div>
+      <PageHeader title="Simulation Lab" sub="Monte Carlo tournament simulations powered by DataGolf projections" />
+
+      {/* Tabs */}
+      <div style={{ display: 'flex', gap: 0, marginBottom: 24, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden', width: 'fit-content' }}>
+        {[['player', '📊 Player Distributions'], ['lineup', '📋 Lineup Evaluator']].map(([id, label]) => (
+          <button key={id} onClick={() => setActiveView(id)} style={{ padding: '9px 20px', fontSize: 13, fontWeight: 600, cursor: 'pointer', border: 'none', background: activeView === id ? 'var(--green)' : 'transparent', color: activeView === id ? 'white' : 'var(--muted)', transition: 'all 0.15s' }}>{label}</button>
+        ))}
+      </div>
+
+      {activeView === 'player' && (
+        <div>
+          {/* Controls */}
+          <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: '16px 20px', marginBottom: 20 }}>
+            <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+              <span style={{ fontSize: 12, color: 'var(--muted)', fontWeight: 600 }}>Simulations:</span>
+              {[1000, 2000, 5000, 10000].map(n => (
+                <button key={n} onClick={() => setSimCount(n)} style={{ padding: '6px 12px', fontSize: 12, fontWeight: 600, cursor: 'pointer', borderRadius: 6, border: '1px solid var(--border)', background: simCount === n ? 'var(--green)' : 'white', color: simCount === n ? 'white' : 'var(--muted)', transition: 'all 0.15s' }}>{n.toLocaleString()}</button>
+              ))}
+              <button onClick={runPlayerSims} disabled={simRunning} style={{ padding: '8px 22px', background: 'var(--green)', color: 'white', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: simRunning ? 'not-allowed' : 'pointer', opacity: simRunning ? 0.7 : 1, marginLeft: 4 }}>
+                {simRunning ? `⏳ Simulating... ${progress}%` : `🎲 Run ${simCount.toLocaleString()} Sims`}
+              </button>
+              {simsReady && <button onClick={exportSimCSV} style={{ padding: '8px 16px', background: 'white', color: 'var(--green)', border: '1px solid var(--green)', borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>⬇ Export CSV</button>}
+            </div>
+            {simRunning && (
+              <div style={{ marginTop: 12 }}>
+                <div style={{ height: 4, background: 'var(--border)', borderRadius: 4, overflow: 'hidden' }}>
+                  <div style={{ height: '100%', width: `${progress}%`, background: 'var(--green)', borderRadius: 4, transition: 'width 0.2s' }} />
+                </div>
+              </div>
+            )}
+            <div style={{ marginTop: 8, fontSize: 11, color: 'var(--muted)' }}>
+              {lastRunStr} {simsReady && `· ${simCount.toLocaleString()} simulations completed · Generates finish distributions for every player in the field`}
+            </div>
+          </div>
+
+          {/* Results */}
+          {simsReady ? (
+            <>
+              <div style={{ display: 'flex', gap: 12, marginBottom: 20, flexWrap: 'wrap' }}>
+                <StatCard label="Players Simulated" value={playerSims.length} sub={`${simCount.toLocaleString()} runs`} type="green" />
+                <StatCard label="Sim Leader" value={playerSims[0]?.name.split(' ').slice(-1)[0]} sub={`${playerSims[0]?.winPct}% win probability`} type="gold" />
+                <StatCard label="Avg Winning Score" value={playerSims[0] ? `${playerSims[0].avgPts} pts` : '—'} sub="Top sim scorer" type="green" />
+              </div>
+              <Card>
+                <SortableTable columns={cols} rows={sortedSims.map(p => [
+                  <PlayerName name={p.name} country={p.country} />,
+                  <SimPctBadge val={p.winPct.toFixed(1)}   thresholds={[5, 2]} />,
+                  <SimPctBadge val={p.top5Pct.toFixed(1)}  thresholds={[20, 10]} />,
+                  <SimPctBadge val={p.top10Pct.toFixed(1)} thresholds={[35, 20]} />,
+                  <SimPctBadge val={p.top20Pct.toFixed(1)} thresholds={[50, 30]} />,
+                  <SimPctBadge val={p.cutPct.toFixed(1)}   thresholds={[75, 55]} />,
+                  <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 12, color: 'var(--text)' }}>{p.avgPts.toFixed(1)}</span>,
+                ])} />
+              </Card>
+            </>
+          ) : (
+            <div style={{ textAlign: 'center', padding: '60px 20px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, color: 'var(--muted)', fontSize: 14 }}>
+              <div style={{ fontSize: 32, marginBottom: 12 }}>🎲</div>
+              <div style={{ fontWeight: 700, color: 'var(--heading)', marginBottom: 6 }}>No simulations run yet</div>
+              <div>Run simulations above to see finish distributions and win probabilities for every player in the field.</div>
+            </div>
+          )}
+        </div>
+      )}
+
+{activeView === 'lineup' && (
+        <div>
+          <div style={{ background: 'var(--green-light)', border: '1px solid var(--green-mid)', borderRadius: 10, padding: '14px 18px', marginBottom: 20 }}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--green-dark)', marginBottom: 4 }}>How this works</div>
+            <div style={{ fontSize: 12, color: 'var(--text)', lineHeight: 1.6 }}>
+              Run tournament simulations on the <strong>Player Distributions</strong> tab first (recommended: 5,000–10,000 sims). Then paste your lineups below to see how they perform against the simulated field.
+            </div>
+          </div>
+          {!simsReady && (
+            <div style={{ background: 'var(--gold-light)', border: '1px solid #fde68a', borderRadius: 10, padding: '14px 18px', marginBottom: 20, display: 'flex', gap: 12, alignItems: 'center' }}>
+              <span style={{ fontSize: 20 }}>⚠️</span>
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--gold)' }}>No simulations run yet</div>
+                <div style={{ fontSize: 12, color: 'var(--text)', marginTop: 2 }}>Switch to Player Distributions and run at least 1,000 simulations before evaluating lineups.</div>
+              </div>
+            </div>
+          )}
+          <div style={{ marginBottom: 6, fontSize: 12, fontWeight: 600, color: 'var(--muted)' }}>Paste lineups — one per line, 6 player names comma-separated. Or upload a CSV file.</div>
+          <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 8 }}>
+            <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '7px 14px', background: 'white', border: '1px solid var(--border)', borderRadius: 8, fontSize: 12, fontWeight: 600, color: 'var(--text)', cursor: 'pointer' }}>
+              📎 Upload CSV
+              <input type="file" accept=".csv" style={{ display: 'none' }} onChange={e => {
+                const file = e.target.files?.[0]
+                if (!file) return
+                const reader = new FileReader()
+                reader.onload = (ev) => {
+                  const text = ev.target.result
+                  const lines = text.trim().split('\n').map(l => l.trim()).filter(l => l)
+                  // Skip header row if it contains G,G,G,G,G,G or non-player text
+                  const dataLines = lines.filter(l => !l.match(/^[Gg],[Gg],[Gg]/))
+                  setLineupText(dataLines.join('\n'))
+                }
+                reader.readAsText(file)
+                e.target.value = ''
+              }} />
+            </label>
+            {lineupText && <button onClick={() => setLineupText('')} style={{ padding: '7px 12px', background: 'transparent', border: '1px solid var(--border)', borderRadius: 8, fontSize: 12, fontWeight: 600, color: 'var(--muted)', cursor: 'pointer' }}>✕ Clear</button>}
+          </div>
+          <textarea
+            value={lineupText}
+            onChange={e => setLineupText(e.target.value)}
+            placeholder={"Robert MacIntyre, Ludvig Aberg, Si Woo Kim, Jordan Spieth, Rickie Fowler, Hideki Matsuyama\nAnother lineup here..."}
+            style={{ width: '100%', minHeight: 120, padding: '12px', borderRadius: 8, border: '1px solid var(--border)', fontSize: 12, fontFamily: 'JetBrains Mono, monospace', color: 'var(--text)', background: 'var(--surface)', resize: 'vertical', boxSizing: 'border-box', marginBottom: 4, outline: 'none', spellCheck: false }}
+          />
+          {(() => {
+            const lines   = lineupText.trim().split('\n').filter(l => l.trim())
+            const parsed  = lines.map(line => line.split(',').map(n => n.trim()).filter(Boolean))
+            const invalid = parsed.map(lineup => lineup.filter(name => !players.find(p => p.name === name)))
+            const hasInvalid = invalid.some(l => l.length > 0)
+            return hasInvalid ? (
+              <div style={{ fontSize: 11, color: 'var(--red)', marginBottom: 8, fontWeight: 600 }}>
+                ⚠ Unrecognized names: {invalid.flat().join(', ')}
+              </div>
+            ) : lines.length > 0 ? (
+              <div style={{ fontSize: 11, color: 'var(--green)', marginBottom: 8, fontWeight: 600 }}>✓ {lines.length} lineup{lines.length > 1 ? 's' : ''} ready</div>
+            ) : null
+          })()}
+          <button
+            onClick={evaluateLineups}
+            disabled={simRunning || !simsReady || !lineupText.trim()}
+            style={{ padding: '8px 22px', background: 'var(--green)', color: 'white', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: (!simsReady || !lineupText.trim()) ? 'not-allowed' : 'pointer', opacity: (!simsReady || !lineupText.trim()) ? 0.5 : 1, marginBottom: 20 }}
+          >
+            📋 Analyze Lineups
+          </button>
+          {simsReady && lineupResults && (
+            <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 14, fontWeight: 500 }}>
+              Results based on <strong>{simCount.toLocaleString()}</strong> Monte Carlo simulations · {lastRunStr}
+            </div>
+          )}
+          {lineupResults ? lineupResults.map((r, i) => {
+            const overCap   = r.salary > 50000
+            const cashColor = parseFloat(r.cashRate) >= 50 ? 'var(--green)' : parseFloat(r.cashRate) >= 35 ? 'var(--gold)' : 'var(--red)'
+            const copyLineup = () => navigator.clipboard.writeText(r.lineup.join(', '))
+            return (
+              <div key={i} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: '16px 18px', marginBottom: 12 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, flexWrap: 'wrap', gap: 10 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--heading)' }}>Lineup {i + 1}</div>
+                    <span style={{ fontSize: 12, fontWeight: 700, fontFamily: 'JetBrains Mono, monospace', color: overCap ? 'var(--red)' : 'var(--green)', background: overCap ? 'var(--red-light)' : 'var(--green-light)', border: `1px solid ${overCap ? '#fecaca' : 'var(--green-mid)'}`, padding: '2px 10px', borderRadius: 20 }}>
+                      ${r.salary.toLocaleString()} {overCap ? '⚠ OVER CAP' : '✓'}
+                    </span>
+                  </div>
+                  <button onClick={copyLineup} style={{ padding: '5px 12px', background: 'white', border: '1px solid var(--border)', borderRadius: 7, fontSize: 11, fontWeight: 600, cursor: 'pointer', color: 'var(--muted)' }}>📋 Copy</button>
+                </div>
+                <div style={{ display: 'flex', gap: 20, marginBottom: 14, flexWrap: 'wrap' }}>
+                  {[
+                    ['Cash Rate',  r.cashRate + '%',  cashColor,       'Top 50% of simulated lineups'],
+                    ['Win Rate',   r.winRate  + '%',  'var(--green)',   'Best score in simulation'],
+                    ['Avg Score',  r.avgScore + ' pts', 'var(--text)', 'Average projected DK score'],
+                  ].map(([label, val, color, hint]) => (
+                    <div key={label} title={hint}>
+                      <div style={{ fontSize: 10, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: 1, fontWeight: 600, marginBottom: 2 }}>{label}</div>
+                      <div style={{ fontSize: 20, fontWeight: 700, color, fontFamily: 'JetBrains Mono, monospace' }}>{val}</div>
+                    </div>
+                  ))}
+                </div>
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                  {r.lineup.map((name, j) => {
+                    const sim = playerSims.find(p => p.name === name)
+                    const winNum = parseFloat(sim?.winPct || 0)
+                    const tagColor  = winNum >= 5 ? 'var(--green-dark)' : winNum >= 2 ? 'var(--gold)' : 'var(--muted)'
+                    const tagBg     = winNum >= 5 ? 'var(--green-light)' : winNum >= 2 ? 'var(--gold-light)' : 'var(--bg)'
+                    const tagBorder = winNum >= 5 ? 'var(--green-mid)' : winNum >= 2 ? '#fde68a' : 'var(--border)'
+                    return (
+                      <span key={j} style={{ background: tagBg, border: `1px solid ${tagBorder}`, borderRadius: 6, padding: '5px 12px', fontSize: 11, color: tagColor, fontWeight: 600 }}>
+                        {name}{sim ? ` · ${sim.winPct}%` : ''}
+                      </span>
+                    )
+                  })}
+                </div>
+              </div>
+            )
+          }) : simsReady ? (
+            <div style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--muted)', fontSize: 14 }}>Paste lineups above and click Analyze to see projected cash rate and win rate.</div>
+          ) : null}
+        </div>
+      )}
+    </div>
+  )
+}
 function Optimizer({ players }) {
   const [locked,   setLocked]   = useState([])
   const [excluded, setExcluded] = useState([])
@@ -2643,6 +2964,7 @@ useEffect(() => {
               {page === 'cut'         && <CutProbability players={players} />}
               {page === 'stats'       && <StatDeepDive   players={players} />}
               {page === 'odds'        && <BettingOdds />}
+              {page === 'simulations' && <Simulations players={players} />}
               {page === 'leaderboard' && <Leaderboard />}
               {page === 'rankings'    && <ModelRankings />}
               {page === 'settings'    && <Settings user={user} onSignOut={() => supabase.auth.signOut()} />}
