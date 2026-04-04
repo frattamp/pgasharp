@@ -75,7 +75,7 @@ export default function Landing({ onGetStarted }) {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 14 }}>
           {[
             { icon: '🤖', title: 'AI Golf Analyst', desc: 'Ask anything — lineup advice, player breakdowns, course fits, betting angles. Our AI analyst has full access to live field data and answers like a sharp.', color: '#6366f1' },
-            { icon: '⚡', title: 'DFS Optimizer', desc: 'Automatically builds the highest projected lineup under the $50k DraftKings cap. Lock players in, exclude fades, generate in seconds.', color: 'var(--gold)' },
+            { icon: '⚡', title: 'DFS Optimizer', desc: 'Generate single or multi-lineup slates under the $50k DraftKings cap. Lock players, exclude fades, generate up to 150 unique lineups, and export directly to CSV for DraftKings upload.' },
             { icon: '📊', title: 'Ownership Leverage', desc: 'See which players are projected high relative to their ownership. Find the undervalued plays the field is sleeping on.', color: 'var(--green)' },
             { icon: '🔥', title: "Who's Hot", desc: 'Weighted form ratings for every player in the field. Last 3 starts weighted 3×. See who\'s Blazing Hot heading into the week.', color: '#f97316' },
             { icon: '⛳', title: 'Course History', desc: 'Past results for every player in the field. Instantly see who owns this course and who struggles here.', color: 'var(--green)' },

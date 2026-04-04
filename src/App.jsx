@@ -355,24 +355,23 @@ const WMO_DESC = (code) => {
 }
 
 const NAV = [
+  { id: 'optimizer',   label: 'DFS Optimizer',    icon: '⚡' },
   { id: 'value',       label: 'Value Finder',    icon: '◈' },
   { id: 'hot',         label: "Who's Hot?",        icon: '🔥' },
   { id: 'history',     label: 'Course History',   icon: '◷' },
   { id: 'lineup',      label: 'Lineup Builder',   icon: '◫' },
   { id: 'own',         label: 'Ownership',        icon: '◎' },
-  { id: 'optimizer',   label: 'DFS Optimizer',    icon: '⚡' },
   { id: 'weather',     label: 'Tournament Weather', icon: '◌' },
   { id: 'cut',         label: 'Cut Probability',  icon: '◐' },
   { id: 'stats',       label: 'Field SG Stats',   icon: '◑' },
   { id: 'leaderboard', label: 'Leaderboard',      icon: '◆' },
   { id: 'rankings',    label: 'Model Rankings',   icon: '◇' },
-  { id: 'odds', label: 'Betting Odds', icon: '💰' },
+  { id: 'odds',        label: 'Betting Odds',     icon: '💰' },
 ]
-
 const NAV_GROUPS = [
   { label: 'Live',      ids: ['leaderboard', 'rankings'] },
   { label: 'Tools',     ids: ['hot', 'history', 'weather', 'cut', 'stats', 'odds'] },
-  { label: 'DFS Tools', ids: ['value', 'lineup', 'own', 'optimizer'] },
+  { label: 'DFS Tools', ids: ['optimizer', 'value', 'lineup', 'own'] },
 ]
 
 // ── Hooks & Utilities ──────────────────────────────────────────────
@@ -1232,13 +1231,79 @@ function LineupBuilder({ players }) {
 function Optimizer({ players }) {
   const [locked,   setLocked]   = useState([])
   const [excluded, setExcluded] = useState([])
-  const [result,   setResult]   = useState(null)
-  const [running,  setRunning]  = useState(false)
+  const [result,      setResult]      = useState(null)
+  const [multiResult, setMultiResult] = useState([])
+  const [numLineups,  setNumLineups]  = useState(10)
+  const [activeTab,   setActiveTab]   = useState(0)
+  const [mode,        setMode]        = useState('single')
+  const [running,     setRunning]     = useState(false)
+  const [optoMap,     setOptoMap]     = useState({})
+  const [simRunning,  setSimRunning]  = useState(false)
+  const [simCount,    setSimCount]    = useState(1000)
   const { sorted, sortKey, sortDir, toggle } = useSort(players, 'projPoints')
   const CAP = 50000
   const toggleLock    = (name) => { setExcluded(e => e.filter(n => n !== name)); setLocked(l => l.includes(name) ? l.filter(n => n !== name) : [...l, name]); setResult(null) }
   const toggleExclude = (name) => { setLocked(l => l.filter(n => n !== name)); setExcluded(e => e.includes(name) ? e.filter(n => n !== name) : [...e, name]); setResult(null) }
-  const reset = () => { setLocked([]); setExcluded([]); setResult(null) }
+  const reset = () => { setLocked([]); setExcluded([]); setResult(null); setMultiResult([]); setActiveTab(0) }
+
+  const generateMultiLineups = () => {
+    setRunning(true)
+    setTimeout(() => {
+      const lineups      = []
+      const playerCounts = {}
+      const usedKeys     = new Set()
+      const maxExposure  = Math.ceil(numLineups * 0.65)
+      let   attempts     = 0
+      const maxAttempts  = numLineups * 20
+
+      while (lineups.length < numLineups && attempts < maxAttempts) {
+        attempts++
+        const exposureCapped = Object.keys(playerCounts).filter(n => playerCounts[n] >= maxExposure)
+        const tempExcluded   = [...new Set([...excluded, ...exposureCapped])]
+
+        // Add random noise (±8%) to projections so each run explores differently
+        const noisyPlayers = players.map(p => ({
+          ...p,
+          projPoints: p.projPoints * (0.92 + Math.random() * 0.16)
+        }))
+
+        const lineup = optimizeLineup(noisyPlayers, CAP, 6, locked, tempExcluded)
+        if (!lineup || lineup.length < 6) continue
+
+        // Re-attach real projPoints for display
+        const realLineup = lineup.map(p => players.find(r => r.name === p.name) || p)
+        const key = realLineup.map(p => p.name).sort().join('|')
+        if (usedKeys.has(key)) continue
+
+        usedKeys.add(key)
+        lineups.push(realLineup)
+        realLineup.forEach(p => { playerCounts[p.name] = (playerCounts[p.name] || 0) + 1 })
+      }
+
+      setMultiResult(lineups)
+      setActiveTab(0)
+      setRunning(false)
+    }, 50)
+  }
+  const runSimulations = () => {
+    setSimRunning(true)
+    setTimeout(() => {
+      const counts = {}
+      for (let i = 0; i < simCount; i++) {
+        const noisyPlayers = players.map(p => ({
+          ...p,
+          projPoints: p.projPoints * (0.85 + Math.random() * 0.30)
+        }))
+        const lineup = optimizeLineup(noisyPlayers, CAP, 6, locked, excluded)
+        if (!lineup || lineup.length < 6) continue
+        lineup.forEach(p => { counts[p.name] = (counts[p.name] || 0) + 1 })
+      }
+      const pct = {}
+      Object.keys(counts).forEach(name => { pct[name] = ((counts[name] / simCount) * 100).toFixed(1) })
+      setOptoMap(pct)
+      setSimRunning(false)
+    }, 50)
+  }
   const run = () => {
     setRunning(true)
     setTimeout(() => { setResult(optimizeLineup(players, CAP, 6, locked, excluded)); setRunning(false) }, 50)
@@ -1250,16 +1315,98 @@ function Optimizer({ players }) {
     col('Salary',      'salary',     sortKey, sortDir, toggle),
     col('Proj Points', 'projPoints', sortKey, sortDir, toggle),
     col('Value',       'value',      sortKey, sortDir, toggle),
+    { label: 'Opto%' },
     { label: 'Lock' }, { label: 'Exclude' },
   ]
+  const exportCSV = (lineups) => {
+    const header = 'G,G,G,G,G,G'
+    const rows   = lineups.map(l => l.map(p => p.name).join(','))
+    const csv    = [header, ...rows].join('\n')
+    const blob   = new Blob([csv], { type: 'text/csv' })
+    const url    = URL.createObjectURL(blob)
+    const a      = document.createElement('a')
+    a.href       = url
+    a.download   = 'draftkings_lineups.csv'
+    a.click()
+    URL.revokeObjectURL(url)
+  }
   return (
     <div>
       <PageHeader title="DFS Optimizer" sub="Finds the highest projected 6-player lineup under the $50k DraftKings cap" />
-      <div style={{ display: 'flex', gap: 12, marginBottom: 24, flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
         <StatCard label="Locked In" value={locked.length} sub={`$${players.filter(p => locked.includes(p.name)).reduce((s,p) => s+p.salary,0).toLocaleString()} used`} type="green" />
         <StatCard label="Excluded" value={excluded.length} sub="Removed from pool" type="red" />
         <StatCard label="Pool Size" value={players.length - excluded.length} sub="Available players" type="gold" />
       </div>
+      <div style={{ display: 'flex', gap: 10, marginBottom: 20, alignItems: 'center', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden' }}>
+          {['single', 'multi'].map(m => (
+            <button key={m} onClick={() => setMode(m)} style={{ padding: '8px 18px', fontSize: 12, fontWeight: 600, cursor: 'pointer', border: 'none', background: mode === m ? 'var(--green)' : 'transparent', color: mode === m ? 'white' : 'var(--muted)', transition: 'all 0.15s' }}>
+              {m === 'single' ? 'Single Lineup' : 'Multi Lineup'}
+            </button>
+          ))}
+        </div>
+        {mode === 'multi' && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ fontSize: 12, color: 'var(--muted)', fontWeight: 600 }}>Lineups:</span>
+            <input
+              type="number" min={1} max={150} value={numLineups}
+              onChange={e => setNumLineups(Math.max(1, Math.min(150, parseInt(e.target.value) || 1)))}
+              onKeyDown={e => e.key === 'Enter' && generateMultiLineups()}
+              style={{ width: 70, padding: '6px 10px', borderRadius: 6, border: '1px solid var(--border)', fontSize: 13, fontWeight: 600, color: 'var(--heading)', background: 'white', textAlign: 'center' }}
+            />
+          </div>
+        )}
+        <button onClick={() => mode === 'single' ? run() : generateMultiLineups()} disabled={running} style={{ padding: '8px 22px', background: 'var(--green)', color: 'white', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: running ? 'not-allowed' : 'pointer', opacity: running ? 0.7 : 1 }}>
+          {running ? 'Running...' : mode === 'single' ? '⚡ Optimize' : `⚡ Generate ${numLineups} Lineups`}
+        </button>
+        <button onClick={runSimulations} disabled={simRunning} style={{ padding: '8px 18px', background: 'white', color: 'var(--green)', border: '1px solid var(--green)', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: simRunning ? 'not-allowed' : 'pointer', opacity: simRunning ? 0.7 : 1 }}>
+          {simRunning ? 'Simulating...' : `🎲 Run ${simCount} Sims`}
+        </button>
+        {(result || multiResult.length > 0) && (
+          <button onClick={reset} style={{ padding: '8px 16px', background: 'transparent', border: '1px solid var(--border)', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer', color: 'var(--muted)' }}>Reset</button>
+        )}
+      </div>
+{mode === 'multi' && multiResult.length > 0 && (
+        <div style={{ marginBottom: 24 }}>
+          <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
+            {multiResult.map((_, i) => (
+              <button key={i} onClick={() => setActiveTab(i)} style={{ padding: '6px 14px', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer', border: '1px solid var(--border)', background: activeTab === i ? 'var(--green)' : 'white', color: activeTab === i ? 'white' : 'var(--muted)', transition: 'all 0.15s' }}>
+                L{i + 1}
+              </button>
+            ))}
+          </div>
+          {(() => {
+            const lineup = multiResult[activeTab]
+            const sal    = lineup.reduce((s, p) => s + p.salary, 0)
+            const pts    = lineup.reduce((s, p) => s + p.projPoints, 0)
+            return (
+              <div style={{ background: 'var(--green-light)', border: '1px solid var(--green-mid)', borderRadius: 14, padding: '20px 24px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14, flexWrap: 'wrap', gap: 10 }}>
+                  <div style={{ fontSize: 13, color: 'var(--muted)' }}>
+                    Salary: <strong style={{ color: 'var(--gold)' }}>${sal.toLocaleString()}</strong>
+                    &nbsp;·&nbsp;Remaining: <strong>${(CAP - sal).toLocaleString()}</strong>
+                    &nbsp;·&nbsp;Proj Pts: <strong style={{ color: 'var(--green)' }}>{pts.toFixed(1)}</strong>
+                  </div>
+                  <button onClick={() => exportCSV(multiResult)} style={{ padding: '7px 16px', background: 'var(--green)', color: 'white', border: 'none', borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>⬇ Export All to CSV</button>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
+                  {lineup.map((p, i) => (
+                    <div key={i} style={{ background: 'white', borderRadius: 10, padding: '14px 16px', border: '1px solid var(--green-mid)' }}>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--heading)', marginBottom: 6 }}>{p.name}</div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ color: 'var(--gold)', fontFamily: 'JetBrains Mono, monospace', fontSize: 12, fontWeight: 600 }}>${p.salary.toLocaleString()}</span>
+                        <span style={{ background: 'var(--green-light)', color: 'var(--green-dark)', padding: '2px 8px', borderRadius: 20, fontSize: 11, fontWeight: 600 }}>{p.projPoints} pts</span>
+                      </div>
+                      {locked.includes(p.name) && <div style={{ fontSize: 10, color: 'var(--green)', marginTop: 4, fontWeight: 600 }}>🔒 LOCKED</div>}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )
+          })()}
+        </div>
+      )}
       {result && result.length === 6 && (
         <div style={{ background: 'var(--green-light)', border: '1px solid var(--green-mid)', borderRadius: 14, padding: '20px 24px', marginBottom: 24 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
@@ -1307,6 +1454,7 @@ function Optimizer({ players }) {
             <span style={{ color: isExcluded ? 'var(--muted)' : 'var(--gold)', fontFamily: 'JetBrains Mono, monospace', fontWeight: 500, opacity: isExcluded ? 0.4 : 1 }}>${p.salary.toLocaleString()}</span>,
             <ProjBadge val={p.projPoints} />,
             <ValueBadge val={p.value} />,
+            <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 12, fontWeight: 700, color: optoMap[p.name] >= 50 ? 'var(--green)' : optoMap[p.name] >= 20 ? 'var(--gold)' : 'var(--muted)' }}>{optoMap[p.name] ? `${optoMap[p.name]}%` : '—'}</span>,
             <button onClick={() => toggleLock(p.name)} style={{ background: isLocked ? 'var(--green)' : 'var(--bg)', color: isLocked ? 'white' : 'var(--muted)', border: `1px solid ${isLocked ? 'var(--green)' : 'var(--border)'}`, padding: '4px 12px', borderRadius: 7, cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>{isLocked ? '🔒 Locked' : 'Lock'}</button>,
             <button onClick={() => toggleExclude(p.name)} style={{ background: isExcluded ? 'var(--red-light)' : 'var(--bg)', color: isExcluded ? 'var(--red)' : 'var(--muted)', border: `1px solid ${isExcluded ? '#fecaca' : 'var(--border)'}`, padding: '4px 12px', borderRadius: 7, cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>{isExcluded ? '✕ Out' : 'Exclude'}</button>,
           ]
@@ -1660,8 +1808,12 @@ const ExpandedCard = ({ p }) => {
     const holes = currentRound?.linescores
       ? [...currentRound.linescores].sort((a, b) => a.period - b.period)
       : []
-    const front = holes.filter(h => h.period <= 9)
-    const back  = holes.filter(h => h.period >= 10)
+    const allHoles = Array.from({length: 18}, (_, i) => {
+      const num = i + 1
+      return holes.find(h => h.period === num) || { period: num, value: null, scoreType: null }
+    })
+    const front = allHoles.filter(h => h.period <= 9)
+    const back  = allHoles.filter(h => h.period >= 10)
     const frontTotal = front.reduce((s, h) => s + (h.value || 0), 0)
     const backTotal  = back.reduce((s,  h) => s + (h.value || 0), 0)
     const roundTotal = currentRound?.displayValue || '—'
@@ -1709,45 +1861,49 @@ const ExpandedCard = ({ p }) => {
                   <tbody>
                     <tr style={{ background: 'white' }}>
                       <td style={{ padding: '8px 10px', fontWeight: 600, color: 'var(--heading)', fontSize: 11 }}>{p.name.split(' ')[0]}</td>
-                      {front.map(h => (
+                     {front.map(h => (
                         <td key={h.period} style={{ padding: '6px 4px', textAlign: 'center' }}>
-                          <div style={{
-                            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                            width: 24, height: 24, borderRadius:
-                              h.scoreType?.displayValue <= -2 ? '50%' :
-                              h.scoreType?.displayValue === '-1' ? '50%' :
-                              h.scoreType?.displayValue === '+1' ? '2px' :
-                              h.scoreType?.displayValue >= '+2' ? '2px' : '0',
-                            border: h.scoreType?.displayValue === '-1' ? `2px solid ${holeColor(h.scoreType?.displayValue)}` :
-                                    h.scoreType?.displayValue === '+1' ? `2px solid ${holeColor(h.scoreType?.displayValue)}` : 'none',
-                            background: holeBg(h.scoreType?.displayValue),
-                            color: holeColor(h.scoreType?.displayValue),
-                            fontFamily: 'JetBrains Mono, monospace',
-                            fontWeight: 700, fontSize: 12
-                          }}>
-                            {h.value}
-                          </div>
+                          {h.value != null ? (
+                            <div style={{
+                              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                              width: 26, height: 26,
+                              borderRadius: h.scoreType?.displayValue <= -2 ? '50%' : h.scoreType?.displayValue === '-1' ? '50%' : '3px',
+                              border: h.scoreType?.displayValue === '-1' ? `2px solid ${holeColor(h.scoreType?.displayValue)}` :
+                                      h.scoreType?.displayValue === '+1' ? `2px solid ${holeColor(h.scoreType?.displayValue)}` :
+                                      h.scoreType?.displayValue <= -2 ? `2px solid ${holeColor(h.scoreType?.displayValue)}` : 'none',
+                              background: holeBg(h.scoreType?.displayValue),
+                              color: holeColor(h.scoreType?.displayValue),
+                              fontFamily: 'JetBrains Mono, monospace',
+                              fontWeight: 700, fontSize: 12
+                            }}>
+                              {h.value}
+                            </div>
+                          ) : (
+                            <span style={{ color: 'var(--border)', fontSize: 12 }}>—</span>
+                          )}
                         </td>
                       ))}
                       <td style={{ padding: '6px 8px', textAlign: 'center', fontFamily: 'JetBrains Mono, monospace', fontWeight: 700, fontSize: 13, color: 'var(--heading)' }}>{frontTotal}</td>
                       {back.map(h => (
                         <td key={h.period} style={{ padding: '6px 4px', textAlign: 'center' }}>
-                          <div style={{
-                            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                            width: 24, height: 24, borderRadius:
-                              h.scoreType?.displayValue <= -2 ? '50%' :
-                              h.scoreType?.displayValue === '-1' ? '50%' :
-                              h.scoreType?.displayValue === '+1' ? '2px' :
-                              h.scoreType?.displayValue >= '+2' ? '2px' : '0',
-                            border: h.scoreType?.displayValue === '-1' ? `2px solid ${holeColor(h.scoreType?.displayValue)}` :
-                                    h.scoreType?.displayValue === '+1' ? `2px solid ${holeColor(h.scoreType?.displayValue)}` : 'none',
-                            background: holeBg(h.scoreType?.displayValue),
-                            color: holeColor(h.scoreType?.displayValue),
-                            fontFamily: 'JetBrains Mono, monospace',
-                            fontWeight: 700, fontSize: 12
-                          }}>
-                            {h.value}
-                          </div>
+                          {h.value != null ? (
+                            <div style={{
+                              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                              width: 26, height: 26,
+                              borderRadius: h.scoreType?.displayValue <= -2 ? '50%' : h.scoreType?.displayValue === '-1' ? '50%' : '3px',
+                              border: h.scoreType?.displayValue === '-1' ? `2px solid ${holeColor(h.scoreType?.displayValue)}` :
+                                      h.scoreType?.displayValue === '+1' ? `2px solid ${holeColor(h.scoreType?.displayValue)}` :
+                                      h.scoreType?.displayValue <= -2 ? `2px solid ${holeColor(h.scoreType?.displayValue)}` : 'none',
+                              background: holeBg(h.scoreType?.displayValue),
+                              color: holeColor(h.scoreType?.displayValue),
+                              fontFamily: 'JetBrains Mono, monospace',
+                              fontWeight: 700, fontSize: 12
+                            }}>
+                              {h.value}
+                            </div>
+                          ) : (
+                            <span style={{ color: 'var(--border)', fontSize: 12 }}>—</span>
+                          )}
                         </td>
                       ))}
                       <td style={{ padding: '6px 8px', textAlign: 'center', fontFamily: 'JetBrains Mono, monospace', fontWeight: 700, fontSize: 13, color: 'var(--heading)' }}>{backTotal}</td>
@@ -1987,11 +2143,15 @@ function UpcomingPanel({ schedule, isMobile }) {
           <span style={{ fontSize: 11, color: 'var(--muted)' }}>{open ? '▲' : '▼'}</span>
         </button>
       ) : (
-        <div style={{ padding: '12px 16px 8px' }}>
+        <button onClick={() => setOpen(o => !o)} style={{
+          width: '100%', padding: '12px 16px 8px', background: 'transparent', border: 'none',
+          cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        }}>
           <div style={{ fontSize: 9, color: 'var(--heading)', letterSpacing: 1.5, textTransform: 'uppercase', fontWeight: 600 }}>Upcoming</div>
-        </div>
+          <span style={{ fontSize: 11, color: 'var(--muted)' }}>{open ? '▲' : '▼'}</span>
+        </button>
       )}
-      {(open || !isMobile) && (
+      {open && (
         <div style={{ padding: '0 12px 12px' }}>
           {upcoming.map(t => {
             const majorNames = ['masters', 'u.s. open', 'us open', 'open championship', 'pga championship', 'the players']
