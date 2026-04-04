@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 
-export default function Chat({ players, tournament, weatherData, completedEvents }) {
+export default function Chat({ players, tournament, weatherData, completedEvents, simResults }) {
   const [open, setOpen]       = useState(false)
   const [messages, setMessages] = useState([
     { role: 'assistant', content: `Hey! I'm your PGASharp AI assistant. Ask me anything about this week's field, lineup recommendations, or DFS strategy for ${tournament?.name || 'this week'}.` }
@@ -27,6 +27,39 @@ export default function Chat({ players, tournament, weatherData, completedEvents
       + 'CURRENT TOURNAMENT: ' + (tournament?.name || '') + ' at ' + (tournament?.course || '') + ' | ' + (tournament?.dates || '') + '\n\n'
       + 'FULL FIELD DATA:\n' + allPlayers + '\n\n'
       + 'WEATHER:\n' + weather
+  }
+  const sendCorePlays = async () => {
+    setOpen(true)
+    const simContext = simResults?.length > 0
+      ? '\n\nSIMULATION RESULTS (Monte Carlo, sorted by win%):\n' +
+        simResults.slice(0, 20).map(p => `${p.name} | Win%: ${p.winPct} | Top5%: ${p.top5Pct} | Top10%: ${p.top10Pct} | Cut%: ${p.cutPct} | AvgPts: ${p.avgPts}`).join('\n')
+      : ''
+    const prompt = `Generate a full tournament preview and core plays article for ${tournament?.name} at ${tournament?.course}. Use the field data, weather, and simulation results provided. Format your response with these exact sections:
+
+🎯 CORE PLAYS (3–5 players you love — give salary, projection, and 2–3 sentence reasoning for each)
+💰 VALUE / LEVERAGE PLAYS (2–3 underowned plays with upside)
+❌ FADES (2–3 popular plays to avoid and why)
+🔥 RECOMMENDED STACKS (1–2 specific 2-3 man stacks with reasoning)
+🎲 GPP CONTRARIAN IDEAS (1–2 low-owned tournament winners)
+
+Be specific, confident, and data-driven. Reference salaries, ownership %, SG stats, and sim results where relevant.`
+
+    setMessages(prev => [...prev, { role: 'user', content: '🔥 Generate Core Plays for this week' }])
+    setLoading(true)
+    try {
+      const context = buildContext() + simContext
+      const res = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ system: context, messages: [{ role: 'user', content: prompt }] })
+      })
+      const data = await res.json()
+      setMessages(prev => [...prev, { role: 'assistant', content: data.reply || 'Sorry, try again.' }])
+    } catch {
+      setMessages(prev => [...prev, { role: 'assistant', content: 'Something went wrong. Please try again.' }])
+    } finally {
+      setLoading(false)
+    }
   }
 
   const send = async () => {

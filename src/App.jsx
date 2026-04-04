@@ -1296,6 +1296,7 @@ function Simulations({ players }) {
         avgPts:   parseFloat((counts[p.name].totalPts / simCount).toFixed(1)),
         })).sort((a, b) => parseFloat(b.winPct) - parseFloat(a.winPct))
         setPlayerSims(results)
+        window.__simResults = results
         setLastRun(new Date())
         setSimRunning(false)
         setProgress(100)
@@ -1494,8 +1495,8 @@ function Simulations({ players }) {
             📋 Analyze Lineups
           </button>
           {simsReady && lineupResults && (
-            <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 14, fontWeight: 500 }}>
-              Results based on <strong>{simCount.toLocaleString()}</strong> Monte Carlo simulations · {lastRunStr}
+            <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 14, fontWeight: 500, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 8, padding: '10px 14px' }}>
+              📊 Results based on <strong>{simCount.toLocaleString()}</strong> Monte Carlo simulations · {lastRunStr} · Player win % reflects tournament-wide finish distributions
             </div>
           )}
           {lineupResults ? lineupResults.map((r, i) => {
@@ -1533,7 +1534,7 @@ function Simulations({ players }) {
                     const tagBg     = winNum >= 5 ? 'var(--green-light)' : winNum >= 2 ? 'var(--gold-light)' : 'var(--bg)'
                     const tagBorder = winNum >= 5 ? 'var(--green-mid)' : winNum >= 2 ? '#fde68a' : 'var(--border)'
                     return (
-                      <span key={j} style={{ background: tagBg, border: `1px solid ${tagBorder}`, borderRadius: 6, padding: '5px 12px', fontSize: 11, color: tagColor, fontWeight: 600 }}>
+                      <span key={j} title={sim ? `${name} wins the tournament in ${sim.winPct}% of simulations` : 'Player not found in sim results'} style={{ background: tagBg, border: `1px solid ${tagBorder}`, borderRadius: 6, padding: '5px 12px', fontSize: 11, color: tagColor, fontWeight: 600, cursor: 'help' }}>
                         {name}{sim ? ` · ${sim.winPct}%` : ''}
                       </span>
                     )
@@ -2985,7 +2986,7 @@ useEffect(() => {
         </div>
       )}
 {user && isLive && players.length > 0 && (
-        <Chat players={players} tournament={activeTournament} weatherData={weatherData} completedEvents={completedEvents} />
+        <Chat players={players} tournament={activeTournament} weatherData={weatherData} completedEvents={completedEvents} simResults={window.__simResults} />
       )}
     </div>
 
