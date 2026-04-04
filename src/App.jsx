@@ -366,11 +366,12 @@ const NAV = [
   { id: 'stats',       label: 'Field SG Stats',   icon: '◑' },
   { id: 'leaderboard', label: 'Leaderboard',      icon: '◆' },
   { id: 'rankings',    label: 'Model Rankings',   icon: '◇' },
+  { id: 'odds', label: 'Betting Odds', icon: '💰' },
 ]
 
 const NAV_GROUPS = [
   { label: 'Live',      ids: ['leaderboard', 'rankings'] },
-  { label: 'Tools',     ids: ['hot', 'history', 'weather', 'cut', 'stats'] },
+  { label: 'Tools',     ids: ['hot', 'history', 'weather', 'cut', 'stats', 'odds'] },
   { label: 'DFS Tools', ids: ['value', 'lineup', 'own', 'optimizer'] },
 ]
 
@@ -1336,11 +1337,7 @@ function WeatherImpact({ weatherData, tournament }) {
   return (
     <div>
       <PageHeader title="Tournament Weather" sub={`Live forecast for ${tournament.course} · ${tournament.dates}`} />
-      <div style={{ display: 'flex', gap: 12, marginBottom: 24, flexWrap: 'wrap' }}>
-        {windiest && <StatCard label="Windiest Round" value={windiest.round.split('—')[1]?.trim() || '—'} sub={`${windiest.wind} mph · gusts to ${windiest.gusts}`} type="red" />}
-        {calmest  && <StatCard label="Best Conditions" value={calmest.round.split('—')[1]?.trim() || '—'} sub={`${calmest.wind} mph · ${calmest.outlook}`} type="green" />}
-        <StatCard label="Forecast Source" value="Live" sub="Open-Meteo · hourly" type="gold" />
-      </div>
+      
       <Card>
         <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border)' }}>
           <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--heading)' }}>Round-by-Round Summary</div>
@@ -1515,6 +1512,8 @@ function Leaderboard() {
   const [activeRound, setActiveRound]   = useState(null)
   const [roundData, setRoundData]       = useState({})
   const [roundLoading, setRoundLoading] = useState(false)
+  const [espnScores, setEspnScores] = useState({})
+  const [coursePar, setCoursePar] = useState({})
   const [currentRound, setCurrentRound] = useState(1)
   const sorted = [...liveData].sort((a, b) => {
     const aNotStarted = a.thru === 0 || a.thru == null
@@ -1531,17 +1530,46 @@ function Leaderboard() {
       try {
         const res  = await dgFetch('preds/live-tournament-stats', { tour: 'pga', file_format: 'json' })
         const data = await res.json()
+        const espnRes  = await fetch('https://site.api.espn.com/apis/site/v2/sports/golf/pga/scoreboard')
+        const espnData = await espnRes.json()
+        const espnMap  = {}
+        const eventId  = espnData.events?.[0]?.id
+        for (const comp of (espnData.events?.[0]?.competitions?.[0]?.competitors || [])) {
+          espnMap[comp.athlete?.displayName] = comp.linescores || []
+        }
+        setEspnScores(espnMap)
+        if (eventId) {
+          const courseRes  = await fetch(`https://site.api.espn.com/apis/site/v2/sports/golf/pga/leaderboard?event=${eventId}`)
+          const courseData = await courseRes.json()
+          const holes = courseData.courses?.[0]?.holes || []
+          const parMap = {}
+          for (const h of holes) parMap[h.number] = h.par
+          setCoursePar(parMap)
+        }
         setEventName(data.event_name)
         setLastUpdated(data.last_updated)
-        const activePlayers = (data.live_stats || []).filter(p => p.thru > 0)
-        const maxRound = activePlayers.length > 0
-          ? Math.max(...activePlayers.map(p => p.round_num || 1))
-          : 1
-        setCurrentRound(Math.min(maxRound, 4))
+        const allStats = data.live_stats || []
+        // Detect current round by finding the highest round number players are actively playing
+        const playingPlayers = allStats.filter(p => p.thru != null && p.thru > 0 && p.position !== 'CUT')
+        const cutPlayers = allStats.filter(p => p.position === 'CUT')
+        const hasCut = cutPlayers.length > 0
+        
+        let detectedRound = 1
+        if (hasCut) {
+          // After cut — check if R3 has started
+          const r3Started = playingPlayers.some(p => p.today != null && p.round != null)
+          detectedRound = r3Started ? 3 : 2
+        } else {
+          // Before cut — check if R2 has started
+          const r2Started = allStats.some(p => p.thru != null && p.thru > 0)
+          detectedRound = r2Started ? 2 : 1
+        }
+        setCurrentRound(Math.min(detectedRound, 4))
         const fieldRes = await dgFetch('field-updates', { tour: 'pga', file_format: 'json' })
         const fieldData = await fieldRes.json()
         const countryMap = {}
         for (const p of (fieldData.field || [])) countryMap[p.dg_id] = p.country
+        
         setLiveData((data.live_stats || []).map(p => ({
           name: flipName(p.player_name), position: p.position,
           total: p.total, round: p.round, thru: p.thru,
@@ -1577,6 +1605,16 @@ function Leaderboard() {
   }
 
   const scoreColor = (v) => v < 0 ? 'var(--green)' : v > 0 ? 'var(--red)' : 'var(--muted)'
+const getEspnScores = (name) => {
+    if (espnScores[name]) return espnScores[name]
+    const normalize = s => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+    const normalized = normalize(name)
+    const key = Object.keys(espnScores).find(k => normalize(k) === normalized)
+    if (key) return espnScores[key]
+    const last = name.split(' ').slice(-1)[0]
+    const fallback = Object.keys(espnScores).find(k => normalize(k).includes(normalize(last)))
+    return fallback ? espnScores[fallback] : null
+  }
   const scoreStr   = (v) => v === 0 ? 'E' : v > 0 ? `+${v}` : `${v}`
   const posColor   = (pos) => pos === '1' ? '#b45309' : pos === 'T1' || pos === '2' ? 'var(--green)' : 'var(--text)'
 
@@ -1584,7 +1622,7 @@ function Leaderboard() {
     { label: 'Pos' }, { label: 'Player', key: 'name' }, { label: 'Total', key: 'total' },
     { label: 'Today', key: 'round' }, { label: 'Thru', key: 'thru' },
     { label: 'SG Total', key: 'sgTotal' }, { label: 'SG App', key: 'sgApp' },
-    { label: 'SG Putt', key: 'sgPutt' }, { label: 'Card' },
+    { label: 'SG Putt', key: 'sgPutt' }
   ]
 
   if (loading) return <Loading />
@@ -1592,77 +1630,155 @@ function Leaderboard() {
 
   const selectedRoundStats = selected && activeRound ? roundData[activeRound]?.[selected.dg_id] : null
 
-  const ExpandedCard = ({ p }) => (
-    <tr>
-      <td colSpan={9} style={{ padding: 0, borderBottom: '2px solid var(--green-mid)' }}>
-        <div style={{ background: 'var(--green-light)', padding: '20px 24px' }}>
-          <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
-            {['Current', ...Array.from({length: p.position === 'CUT' ? Math.min(currentRound, 2) : currentRound}, (_, i) => i + 1)].map((r) => (
-              <button key={r} onClick={() => r === 'Current' ? setActiveRound(null) : fetchRound(r)} style={{
-                padding: '6px 16px', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer', transition: 'all 0.15s',
-                background: (r === 'Current' && !activeRound) || activeRound === r ? 'var(--green)' : 'white',
-                color:      (r === 'Current' && !activeRound) || activeRound === r ? 'white' : 'var(--muted)',
-                border:     `1px solid ${(r === 'Current' && !activeRound) || activeRound === r ? 'var(--green)' : 'var(--border)'}`,
-              }}>{r === 'Current' ? 'Current' : `R${r}`}</button>
-            ))}
-            {roundLoading && <span style={{ fontSize: 12, color: 'var(--muted)', alignSelf: 'center' }}>Loading...</span>}
+const ExpandedCard = ({ p }) => {
+    const [activeRound, setActiveRound] = useState(0)
+    const espn = getEspnScores(p.name)
+    const rounds = espn ? espn.filter((r, i) => r.linescores?.length > 0 || i === 0) : []
+    const isCut = p.position === 'CUT'
+
+    const holeColor = (display) => {
+      if (!display) return 'var(--text)'
+      if (display === 'E') return 'var(--muted)'
+      const n = parseInt(display)
+      if (n <= -2) return '#b45309'
+      if (n === -1) return 'var(--green)'
+      if (n === 1)  return 'var(--red)'
+      if (n >= 2)   return '#7c3aed'
+      return 'var(--muted)'
+    }
+    const holeBg = (display) => {
+      if (!display || display === 'E') return 'transparent'
+      const n = parseInt(display)
+      if (n <= -2) return '#fef3c7'
+      if (n === -1) return 'var(--green-light)'
+      if (n === 1)  return 'var(--red-light)'
+      if (n >= 2)   return '#f5f3ff'
+      return 'transparent'
+    }
+
+    const currentRound = espn?.[activeRound]
+    const holes = currentRound?.linescores
+      ? [...currentRound.linescores].sort((a, b) => a.period - b.period)
+      : []
+    const front = holes.filter(h => h.period <= 9)
+    const back  = holes.filter(h => h.period >= 10)
+    const frontTotal = front.reduce((s, h) => s + (h.value || 0), 0)
+    const backTotal  = back.reduce((s,  h) => s + (h.value || 0), 0)
+    const roundTotal = currentRound?.displayValue || '—'
+
+    return (
+      <tr>
+        <td colSpan={8} style={{ padding: 0, borderBottom: '2px solid var(--green-mid)' }}>
+          <div style={{ background: 'var(--green-light)', padding: '16px 20px' }}>
+
+            {/* Round tabs */}
+            <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
+              {(isCut ? rounds.slice(0, 2) : rounds).map((r, i) => {
+                const strokes = r.value || null
+                const toPar   = r.displayValue || null
+                const toParNum = toPar ? parseInt(toPar) : null
+                const scoreColor = activeRound === i ? 'white' : toParNum < 0 ? 'var(--green)' : toParNum > 0 ? 'var(--red)' : 'var(--text)'
+                return (
+                  <button key={i} onClick={() => setActiveRound(i)} style={{
+                    padding: '8px 16px', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1, minWidth: 52,
+                    background: activeRound === i ? 'var(--green)' : 'white',
+                    color: activeRound === i ? 'white' : 'var(--muted)',
+                    border: `1px solid ${activeRound === i ? 'var(--green)' : 'var(--border)'}`,
+                    transition: 'all 0.15s'
+                  }}>
+                    <span style={{ fontSize: 10, fontWeight: 600, letterSpacing: 1, opacity: 0.7 }}>R{i + 1}</span>
+                    <span style={{ display: 'block', fontSize: 15, fontWeight: 700, color: scoreColor, fontFamily: 'JetBrains Mono, monospace', lineHeight: 1.1 }}>{strokes ?? '—'}</span>
+                  </button>
+                )
+              })}
+            </div>
+
+            {holes.length > 0 ? (
+              <div style={{ overflowX: 'auto', borderRadius: 10, border: '1px solid var(--green-mid)', overflow: 'hidden' }}>
+                <table style={{ borderCollapse: 'collapse', fontSize: 13, width: '100%' }}>
+                  <thead>
+                    <tr style={{ background: '#e8f5ec', borderBottom: '2px solid var(--green-mid)' }}>
+                      <td style={{ padding: '8px 14px', fontWeight: 700, color: 'var(--green-dark)', fontSize: 11, letterSpacing: 1, textTransform: 'uppercase', whiteSpace: 'nowrap' }}>HOLE</td>
+                      {front.map(h => <td key={h.period} style={{ padding: '8px 6px', textAlign: 'center', fontWeight: 700, color: 'var(--green-dark)', fontSize: 12, minWidth: 32 }}>{h.period}</td>)}
+                      <td style={{ padding: '8px 10px', textAlign: 'center', fontWeight: 700, color: 'var(--green-dark)', fontSize: 11, background: '#d4edda' }}>OUT</td>
+                      {back.map(h => <td key={h.period} style={{ padding: '8px 6px', textAlign: 'center', fontWeight: 700, color: 'var(--green-dark)', fontSize: 12, minWidth: 32 }}>{h.period}</td>)}
+                      <td style={{ padding: '8px 10px', textAlign: 'center', fontWeight: 700, color: 'var(--green-dark)', fontSize: 11, background: '#d4edda' }}>IN</td>
+                      <td style={{ padding: '8px 10px', textAlign: 'center', fontWeight: 700, color: 'var(--green-dark)', fontSize: 11, background: '#d4edda' }}>TOT</td>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr style={{ background: 'white' }}>
+                      <td style={{ padding: '8px 10px', fontWeight: 600, color: 'var(--heading)', fontSize: 11 }}>{p.name.split(' ')[0]}</td>
+                      {front.map(h => (
+                        <td key={h.period} style={{ padding: '6px 4px', textAlign: 'center' }}>
+                          <div style={{
+                            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                            width: 24, height: 24, borderRadius:
+                              h.scoreType?.displayValue <= -2 ? '50%' :
+                              h.scoreType?.displayValue === '-1' ? '50%' :
+                              h.scoreType?.displayValue === '+1' ? '2px' :
+                              h.scoreType?.displayValue >= '+2' ? '2px' : '0',
+                            border: h.scoreType?.displayValue === '-1' ? `2px solid ${holeColor(h.scoreType?.displayValue)}` :
+                                    h.scoreType?.displayValue === '+1' ? `2px solid ${holeColor(h.scoreType?.displayValue)}` : 'none',
+                            background: holeBg(h.scoreType?.displayValue),
+                            color: holeColor(h.scoreType?.displayValue),
+                            fontFamily: 'JetBrains Mono, monospace',
+                            fontWeight: 700, fontSize: 12
+                          }}>
+                            {h.value}
+                          </div>
+                        </td>
+                      ))}
+                      <td style={{ padding: '6px 8px', textAlign: 'center', fontFamily: 'JetBrains Mono, monospace', fontWeight: 700, fontSize: 13, color: 'var(--heading)' }}>{frontTotal}</td>
+                      {back.map(h => (
+                        <td key={h.period} style={{ padding: '6px 4px', textAlign: 'center' }}>
+                          <div style={{
+                            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                            width: 24, height: 24, borderRadius:
+                              h.scoreType?.displayValue <= -2 ? '50%' :
+                              h.scoreType?.displayValue === '-1' ? '50%' :
+                              h.scoreType?.displayValue === '+1' ? '2px' :
+                              h.scoreType?.displayValue >= '+2' ? '2px' : '0',
+                            border: h.scoreType?.displayValue === '-1' ? `2px solid ${holeColor(h.scoreType?.displayValue)}` :
+                                    h.scoreType?.displayValue === '+1' ? `2px solid ${holeColor(h.scoreType?.displayValue)}` : 'none',
+                            background: holeBg(h.scoreType?.displayValue),
+                            color: holeColor(h.scoreType?.displayValue),
+                            fontFamily: 'JetBrains Mono, monospace',
+                            fontWeight: 700, fontSize: 12
+                          }}>
+                            {h.value}
+                          </div>
+                        </td>
+                      ))}
+                      <td style={{ padding: '6px 8px', textAlign: 'center', fontFamily: 'JetBrains Mono, monospace', fontWeight: 700, fontSize: 13, color: 'var(--heading)' }}>{backTotal}</td>
+                      <td style={{ padding: '6px 8px', textAlign: 'center', fontFamily: 'JetBrains Mono, monospace', fontWeight: 700, fontSize: 14, color: 'var(--green-dark)' }}>{roundTotal}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div style={{ fontSize: 13, color: 'var(--muted)' }}>No scorecard data available for this round.</div>
+            )}
+
+            {/* SG Stats */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8, marginTop: 14 }}>
+              {[['SG Total', p.sgTotal], ['SG App', p.sgApp], ['SG Putt', p.sgPutt], ['Thru', p.thru === 18 ? 'F' : p.thru]].map(([label, val]) => {
+                const color = typeof val === 'number' ? (val > 0 ? 'var(--green)' : val < 0 ? 'var(--red)' : 'var(--muted)') : 'var(--heading)'
+                return (
+                  <div key={label} style={{ background: 'white', borderRadius: 8, padding: '10px 12px', border: '1px solid var(--green-mid)' }}>
+                    <div style={{ fontSize: 9, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: 1, fontWeight: 600, marginBottom: 4 }}>{label}</div>
+                    <div style={{ fontSize: 16, fontWeight: 700, color, fontFamily: 'JetBrains Mono, monospace' }}>
+                      {typeof val === 'number' ? (val > 0 ? `+${val}` : val) : val}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
           </div>
-          {activeRound && selectedRoundStats ? (
-            <div>
-              <div style={{ fontSize: 11, color: 'var(--green)', fontWeight: 600, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 10 }}>Round {activeRound} Scorecard</div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, marginBottom: 12 }}>
-                {[
-                  ['Score', scoreStr(selectedRoundStats.round ?? 0), selectedRoundStats.round ?? 0],
-                  ['Thru', selectedRoundStats.thru === 18 ? 'F' : `${selectedRoundStats.thru}`, 0],
-                  ['SG Total', `${selectedRoundStats.sg_total > 0 ? '+' : ''}${selectedRoundStats.sg_total?.toFixed(2)}`, selectedRoundStats.sg_total],
-                  ['SG T2G',   `${selectedRoundStats.sg_t2g   > 0 ? '+' : ''}${selectedRoundStats.sg_t2g?.toFixed(2)}`,   selectedRoundStats.sg_t2g],
-                ].map(([label, val, raw]) => (
-                  <div key={label} style={{ background: 'white', borderRadius: 10, padding: '12px 16px', border: '1px solid var(--green-mid)' }}>
-                    <div style={{ fontSize: 10, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: 1, fontWeight: 600, marginBottom: 6 }}>{label}</div>
-                    <div style={{ fontSize: 22, fontWeight: 700, color: scoreColor(raw) }}>{val}</div>
-                  </div>
-                ))}
-              </div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
-                {[['SG Off Tee', selectedRoundStats.sg_ott], ['SG Approach', selectedRoundStats.sg_app], ['SG Around', selectedRoundStats.sg_arg], ['SG Putting', selectedRoundStats.sg_putt]].map(([label, val]) => {
-                  const color = val > 0.3 ? 'var(--green)' : val < -0.3 ? 'var(--red)' : 'var(--gold)'
-                  return (
-                    <div key={label} style={{ background: 'white', borderRadius: 10, padding: '12px 16px', border: '1px solid var(--green-mid)' }}>
-                      <div style={{ fontSize: 10, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: 1, fontWeight: 600, marginBottom: 6 }}>{label}</div>
-                      <div style={{ fontSize: 18, fontWeight: 700, color }}>{val > 0 ? '+' : ''}{val?.toFixed(2)}</div>
-                    </div>
-                  )
-                })}
-              </div>
-            </div>
-          ) : (
-            <div>
-              <div style={{ fontSize: 11, color: 'var(--green)', fontWeight: 600, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 10 }}>Current Round Stats</div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, marginBottom: 12 }}>
-                {[['Total', scoreStr(p.total), p.total], ['Round', p.position === 'CUT' ? 'CUT' : p.round == null ? '—' : scoreStr(p.round), p.round ?? 0], ['SG Total', `${p.sgTotal > 0 ? '+' : ''}${p.sgTotal}`, p.sgTotal], ['SG T2G', `${p.sgT2g > 0 ? '+' : ''}${p.sgT2g}`, p.sgT2g]].map(([label, val, raw]) => (
-                  <div key={label} style={{ background: 'white', borderRadius: 10, padding: '12px 16px', border: '1px solid var(--green-mid)' }}>
-                    <div style={{ fontSize: 10, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: 1, fontWeight: 600, marginBottom: 6 }}>{label}</div>
-                    <div style={{ fontSize: 22, fontWeight: 700, color: scoreColor(raw) }}>{val}</div>
-                  </div>
-                ))}
-              </div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
-                {[['SG Off Tee', p.sgOtt], ['SG Approach', p.sgApp], ['SG Around', p.sgArg], ['SG Putting', p.sgPutt]].map(([label, val]) => {
-                  const color = val > 0.3 ? 'var(--green)' : val < -0.3 ? 'var(--red)' : 'var(--gold)'
-                  return (
-                    <div key={label} style={{ background: 'white', borderRadius: 10, padding: '12px 16px', border: '1px solid var(--green-mid)' }}>
-                      <div style={{ fontSize: 10, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: 1, fontWeight: 600, marginBottom: 6 }}>{label}</div>
-                      <div style={{ fontSize: 18, fontWeight: 700, color }}>{val > 0 ? '+' : ''}{val}</div>
-                    </div>
-                  )
-                })}
-              </div>
-            </div>
-          )}
-        </div>
-      </td>
-    </tr>
-  )
+        </td>
+      </tr>
+    )
+  }
 
   return (
     <div>
@@ -1689,7 +1805,7 @@ function Leaderboard() {
               const isOpen = selected?.name === p.name
               return (
                 <React.Fragment key={`lb-${i}`}>
-                  <tr style={{ borderBottom: isOpen ? 'none' : '1px solid var(--border)', background: isOpen ? '#f0fdf4' : 'transparent', transition: 'background 0.1s' }}
+                  <tr onClick={() => openCard(p)} style={{ borderBottom: isOpen ? 'none' : '1px solid var(--border)', background: isOpen ? '#f0fdf4' : 'transparent', transition: 'background 0.1s', cursor: 'pointer' }}
                     onMouseEnter={e => { if (!isOpen) e.currentTarget.style.background = '#f0fdf4' }}
                     onMouseLeave={e => { if (!isOpen) e.currentTarget.style.background = 'transparent' }}>
                     <td style={{ padding: '13px 18px' }}><span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 13, fontWeight: 700, color: posColor(p.position) }}>{p.position}</span></td>
@@ -1705,14 +1821,7 @@ function Leaderboard() {
                     <td style={{ padding: '13px 18px' }}><span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 13, color: p.sgTotal > 0 ? 'var(--green)' : 'var(--red)', fontWeight: 600 }}>{p.sgTotal > 0 ? '+' : ''}{p.sgTotal}</span></td>
                     <td style={{ padding: '13px 18px' }}><span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 13, color: p.sgApp > 0 ? 'var(--green)' : 'var(--red)' }}>{p.sgApp > 0 ? '+' : ''}{p.sgApp}</span></td>
                     <td style={{ padding: '13px 18px' }}><span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 13, color: p.sgPutt > 0 ? 'var(--green)' : 'var(--red)' }}>{p.sgPutt > 0 ? '+' : ''}{p.sgPutt}</span></td>
-                    <td style={{ padding: '13px 18px' }}>
-                      <button onClick={() => openCard(p)} style={{
-                        background: isOpen ? 'var(--green-light)' : 'var(--bg)',
-                        color:      isOpen ? 'var(--green-dark)' : 'var(--muted)',
-                        border:     `1px solid ${isOpen ? 'var(--green-mid)' : 'var(--border)'}`,
-                        padding: '4px 12px', borderRadius: 7, cursor: 'pointer', fontSize: 12, fontWeight: 600
-                      }}>{isOpen ? 'Close' : 'View'}</button>
-                    </td>
+  
                   </tr>
                   {isOpen && <ExpandedCard key={`card-${i}`} p={p} />}
                 </React.Fragment>
@@ -1972,6 +2081,138 @@ function Settings({ user, onSignOut }) {
     </div>
   )
 }
+function BettingOdds() {
+  const [odds, setOdds]       = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError]     = useState(null)
+  const [sort, setSort]       = useState('best')
+
+  useEffect(() => {
+    async function fetchOdds() {
+      try {
+        const res  = await fetch('/api/odds')
+        const data = await res.json()
+        if (!Array.isArray(data)) { setError('No odds available right now.'); setLoading(false); return }
+
+        // Flatten all bookmaker odds into per-player format
+        const playerMap = {}
+        for (const event of data) {
+          for (const bookmaker of (event.bookmakers || [])) {
+            for (const market of (bookmaker.markets || [])) {
+              if (market.key !== 'outrights') continue
+              for (const outcome of (market.outcomes || [])) {
+                const name = outcome.name
+                if (!playerMap[name]) playerMap[name] = { name, books: {} }
+                playerMap[name].books[bookmaker.key] = outcome.price
+              }
+            }
+          }
+        }
+
+        // Get best odds and average odds per player
+        const players = Object.values(playerMap).map(p => {
+          const prices = Object.values(p.books).filter(v => typeof v === 'number')
+          const best   = prices.length > 0 ? Math.max(...prices) : null
+          const avg    = prices.length > 0 ? Math.round(prices.reduce((a, b) => a + b, 0) / prices.length) : null
+          return { ...p, best, avg, books: p.books }
+        }).filter(p => p.best !== null)
+
+        setOdds(players)
+      } catch (e) {
+        setError('Failed to load odds.')
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchOdds()
+  }, [])
+
+  const BOOKS = [
+    { key: 'draftkings',        label: 'DraftKings' },
+    { key: 'fanduel',           label: 'FanDuel' },
+    { key: 'betmgm',            label: 'BetMGM' },
+    { key: 'caesars',           label: 'Caesars' },
+    { key: 'bet365',            label: 'Bet365' },
+    { key: 'pointsbet',         label: 'PointsBet' },
+    { key: 'sports_interaction', label: 'Sports Interaction' },
+    { key: 'betway',            label: 'Betway' },
+  ]
+
+  const formatOdds = (val) => {
+    if (val == null) return '—'
+    return val > 0 ? `+${val}` : `${val}`
+  }
+
+  const oddsColor = (val) => {
+    if (val == null) return 'var(--muted)'
+    if (val >= 5000) return 'var(--muted)'
+    if (val >= 2000) return 'var(--text)'
+    if (val >= 1000) return 'var(--gold)'
+    if (val >= 500)  return 'var(--green)'
+    return 'var(--green-dark)'
+  }
+
+  const sorted = [...odds].sort((a, b) => {
+    if (sort === 'best') return b.best - a.best
+    return a.best - b.best
+  })
+
+  if (loading) return <Loading />
+  if (error)   return <ErrorBox message={error} />
+
+  const favorite = [...odds].sort((a, b) => a.best - b.best)[0]
+  const longshot = [...odds].sort((a, b) => b.best - a.best)[0]
+
+  return (
+    <div>
+      <PageHeader title="Betting Odds" sub="Live outright win odds across major sportsbooks · American format" />
+      <div style={{ display: 'flex', gap: 12, marginBottom: 24, flexWrap: 'wrap' }}>
+        <StatCard label="Favorite" value={favorite?.name.split(' ')[1] || '—'} sub={formatOdds(favorite?.best) + ' best odds'} type="green" />
+        <StatCard label="Longest Shot" value={longshot?.name.split(' ')[1] || '—'} sub={formatOdds(longshot?.best) + ' best odds'} type="gold" />
+        <StatCard label="Players Listed" value={odds.length} sub="With available odds" />
+      </div>
+      <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+        <button onClick={() => setSort('best')} style={{ background: sort === 'best' ? 'var(--green-light)' : 'var(--bg)', border: `1px solid ${sort === 'best' ? 'var(--green-mid)' : 'var(--border)'}`, borderRadius: 8, padding: '6px 14px', fontSize: 12, fontWeight: 600, color: sort === 'best' ? 'var(--green-dark)' : 'var(--muted)', cursor: 'pointer' }}>Favorites First</button>
+        <button onClick={() => setSort('long')} style={{ background: sort === 'long' ? 'var(--green-light)' : 'var(--bg)', border: `1px solid ${sort === 'long' ? 'var(--green-mid)' : 'var(--border)'}`, borderRadius: 8, padding: '6px 14px', fontSize: 12, fontWeight: 600, color: sort === 'long' ? 'var(--green-dark)' : 'var(--muted)', cursor: 'pointer' }}>Longshots First</button>
+      </div>
+      <Card>
+        <div style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 700 }}>
+            <thead>
+              <tr style={{ background: 'var(--bg)', borderBottom: '2px solid var(--border)' }}>
+                <th style={{ textAlign: 'left', padding: '11px 18px', fontSize: 11, letterSpacing: 1, textTransform: 'uppercase', color: 'var(--muted)', fontWeight: 600 }}>Player</th>
+                <th style={{ textAlign: 'left', padding: '11px 18px', fontSize: 11, letterSpacing: 1, textTransform: 'uppercase', color: 'var(--green)', fontWeight: 600 }}>Best Odds</th>
+                {BOOKS.map(b => (
+                  <th key={b.key} style={{ textAlign: 'center', padding: '11px 10px', fontSize: 10, letterSpacing: 1, textTransform: 'uppercase', color: 'var(--muted)', fontWeight: 600, whiteSpace: 'nowrap' }}>{b.label}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {sorted.map((p, i) => (
+                <tr key={i} style={{ borderBottom: '1px solid var(--border)', transition: 'background 0.1s' }}
+                  onMouseEnter={e => e.currentTarget.style.background = '#f0fdf4'}
+                  onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                  <td style={{ padding: '12px 18px', fontWeight: 600, color: 'var(--heading)', fontSize: 14 }}>{p.name}</td>
+                  <td style={{ padding: '12px 18px' }}>
+                    <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 13, fontWeight: 700, color: 'var(--green)' }}>{formatOdds(p.best)}</span>
+                  </td>
+                  {BOOKS.map(b => (
+                    <td key={b.key} style={{ padding: '12px 10px', textAlign: 'center' }}>
+                      <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 12, color: oddsColor(p.books[b.key]), fontWeight: p.books[b.key] === p.best ? 700 : 400 }}>
+                        {formatOdds(p.books[b.key])}
+                      </span>
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Card>
+    </div>
+  )
+}
+
 // ── App Shell ──────────────────────────────────────────────────────
 
 export default function App() {
@@ -2118,8 +2359,8 @@ useEffect(() => {
         {isLive && (
           <div style={{ padding: '12px', flex: 1, overflowY: 'auto' }}>
             {/* This Week */}
-            <div style={{ padding: '10px 10px 12px', borderBottom: '1px solid var(--border)', marginBottom: 10 }}>
-              <div style={{ fontSize: 9, color: 'var(--heading)', letterSpacing: 1.5, textTransform: 'uppercase', fontWeight: 600, marginBottom: 6 }}>This Week</div>
+            <div style={{ padding: '10px 0 12px', borderBottom: '1px solid var(--border)', marginBottom: 10 }}>
+              <div style={{ fontSize: 9, color: 'var(--heading)', letterSpacing: 1.5, textTransform: 'uppercase', fontWeight: 600, marginBottom: 6, paddingLeft: 12 }}>This Week</div>
               {schedule.filter(t => t.status === 'live').length > 1 ? (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                   {schedule.filter(t => t.status === 'live').map(t => (
@@ -2134,13 +2375,15 @@ useEffect(() => {
                   ))}
                 </div>
               ) : (
-                <div style={{ background: 'var(--green-light)', border: '1px solid var(--green-mid)', borderRadius: 9, padding: '9px 12px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 3 }}>
-                    <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--green-dark)', lineHeight: 1.3 }}>{activeTournament?.name}</div>
-                    <span style={{ background: 'var(--green)', color: 'white', fontSize: 8, fontWeight: 700, padding: '2px 6px', borderRadius: 8, letterSpacing: 0.5 }}>LIVE</span>
+                <div style={{ background: 'var(--green-light)', border: '1px solid var(--green-mid)', borderRadius: 8, padding: '9px 12px', display: 'flex', flexDirection: 'column', gap: 5 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--green-dark)', lineHeight: 1.4, flex: 1, paddingRight: 8 }}>{activeTournament?.name}</div>
+                    <span style={{ background: 'var(--green)', color: 'white', fontSize: 8, fontWeight: 800, padding: '3px 7px', borderRadius: 20, letterSpacing: 1, whiteSpace: 'nowrap' }}>● LIVE</span>
                   </div>
-                  <div style={{ fontSize: 10, color: 'var(--green)', fontWeight: 500 }}>{activeTournament?.course?.split('(')[0].trim()}</div>
-                  <div style={{ fontSize: 10, color: 'var(--muted)', marginTop: 2 }}>{activeTournament?.dates}</div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                    <div style={{ fontSize: 10, color: 'var(--green)', fontWeight: 600 }}>{activeTournament?.course?.split('(')[0].trim()}</div>
+                    <div style={{ fontSize: 10, color: 'var(--muted)' }}>{activeTournament?.dates}</div>
+                  </div>
                 </div>
               )}
             </div>
@@ -2225,6 +2468,7 @@ useEffect(() => {
               {page === 'weather'     && <WeatherImpact  weatherData={weatherData} tournament={activeTournament} />}
               {page === 'cut'         && <CutProbability players={players} />}
               {page === 'stats'       && <StatDeepDive   players={players} />}
+              {page === 'odds'        && <BettingOdds />}
               {page === 'leaderboard' && <Leaderboard />}
               {page === 'rankings'    && <ModelRankings />}
               {page === 'settings'    && <Settings user={user} onSignOut={() => supabase.auth.signOut()} />}
