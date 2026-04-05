@@ -115,11 +115,21 @@ Be specific, confident, and data-driven. Reference salaries, ownership %, SG sta
           display: 'flex', flexDirection: 'column', overflow: 'hidden'
         }}>
           {/* Header */}
-          <div style={{ padding: '14px 18px', borderBottom: '1px solid var(--border)', background: 'var(--green)', display: 'flex', alignItems: 'center', gap: 10 }}>
-            <div style={{ fontSize: 18 }}>⛳</div>
-            <div>
-              <div style={{ fontSize: 14, fontWeight: 700, color: 'white' }}>PGASharp AI</div>
-              <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.8)' }}>Powered by live DataGolf data</div>
+          <div style={{ borderBottom: '1px solid var(--border)', background: 'var(--green)' }}>
+            <div style={{ padding: '14px 18px', display: 'flex', alignItems: 'center', gap: 10 }}>
+              <div style={{ fontSize: 18 }}>⛳</div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 14, fontWeight: 700, color: 'white' }}>PGASharp AI</div>
+                <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.8)' }}>Powered by live DataGolf data</div>
+              </div>
+            </div>
+            <div style={{ padding: '0 12px 12px' }}>
+              <button onClick={sendCorePlays} disabled={loading} style={{ width: '100%', padding: '8px 14px', background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.3)', borderRadius: 8, color: 'white', fontSize: 12, fontWeight: 700, cursor: loading ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, transition: 'all 0.15s' }}
+                onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.25)'}
+                onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.15)'}
+              >
+                🔥 Generate Core Plays
+              </button>
             </div>
           </div>
 

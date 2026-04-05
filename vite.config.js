@@ -8,6 +8,8 @@ export default defineConfig({
       '/api/datagolf': { target: 'http://localhost:3000', changeOrigin: true },
       '/api/weather':  { target: 'http://localhost:3000', changeOrigin: true },
       '/api/chat':     { target: 'http://localhost:3000', changeOrigin: true },
+      '/api/vision':   { target: 'http://localhost:3000', changeOrigin: true },
+      '/api/vision':   { target: 'http://localhost:3000', changeOrigin: true },
       '/api': {
         target: 'https://feeds.datagolf.com',
         changeOrigin: true,

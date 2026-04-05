@@ -4,6 +4,7 @@ import Auth from './Auth'
 import Landing from './Landing'
 import { supabase } from './supabase'
 import Chat from './Chat'
+import BarPoolOptimizer from './BarPoolOptimizer'
 
 const KEY = import.meta.env.VITE_DATAGOLF_KEY
 
@@ -366,13 +367,14 @@ const NAV = [
   { id: 'stats',       label: 'Field SG Stats',   icon: '◑' },
   { id: 'leaderboard', label: 'Leaderboard',      icon: '◆' },
   { id: 'rankings',    label: 'Model Rankings',   icon: '◇' },
-  { id: 'odds',        label: 'Betting Odds',     icon: '💰' },
   { id: 'simulations', label: 'Simulation Lab',   icon: '🎲' },
+  { id: 'barpool', label: 'Bar Pool Optimizer', icon: '🎰' },
 ]
 const NAV_GROUPS = [
   { label: 'Live',      ids: ['leaderboard', 'rankings'] },
-  { label: 'Tools',     ids: ['hot', 'history', 'weather', 'cut', 'stats', 'odds'] },
+  { label: 'Tools',     ids: ['hot', 'history', 'weather', 'cut', 'stats'] },
   { label: 'DFS Tools', ids: ['optimizer', 'simulations', 'value', 'lineup', 'own'] },
+  { label: 'Pool Tool AI', ids: ['barpool'] },
 ]
 
 // ── Hooks & Utilities ──────────────────────────────────────────────
@@ -2000,11 +2002,10 @@ function Leaderboard() {
   const [coursePar, setCoursePar] = useState({})
   const [currentRound, setCurrentRound] = useState(1)
   const sorted = [...liveData].sort((a, b) => {
-    const aNotStarted = a.thru === 0 || a.thru == null
-    const bNotStarted = b.thru === 0 || b.thru == null
-    if (aNotStarted && bNotStarted) return 0
-    if (aNotStarted) return 1
-    if (bNotStarted) return -1
+    const tier = p => p.position === 'WD' || p.position === 'DQ' ? 2 : p.position === 'CUT' ? 1 : 0
+    if (tier(a) !== tier(b)) return tier(a) - tier(b)
+    const posNum = p => parseInt((p.position || '999').replace(/\D/g, '')) || 999
+    if (posNum(a) !== posNum(b)) return posNum(a) - posNum(b)
     return a.total - b.total
   })
   const { sortKey, sortDir, toggle } = useSort(liveData, 'total', 'asc')
@@ -2297,6 +2298,20 @@ const ExpandedCard = ({ p }) => {
               const isOpen = selected?.name === p.name
               return (
                 <React.Fragment key={`lb-${i}`}>
+  {p.position === 'CUT' && (sorted[i - 1]?.position !== 'CUT' && sorted[i - 1]?.position !== 'WD' && sorted[i - 1]?.position !== 'DQ') && (
+    <tr>
+      <td colSpan={8} style={{ padding: 0 }}>
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 10,
+          padding: '6px 18px', background: 'rgba(220,53,69,0.08)',
+          borderTop: '2px solid #dc3545', borderBottom: '1px solid rgba(220,53,69,0.3)',
+        }}>
+          <span style={{ fontSize: 11, fontWeight: 800, color: '#dc3545', letterSpacing: 1 }}>✂ CUT LINE</span>
+          <div style={{ flex: 1, height: 1, background: 'rgba(220,53,69,0.3)' }} />
+        </div>
+      </td>
+    </tr>
+  )}
                   <tr onClick={() => openCard(p)} style={{ borderBottom: isOpen ? 'none' : '1px solid var(--border)', background: isOpen ? '#f0fdf4' : 'transparent', transition: 'background 0.1s', cursor: 'pointer' }}
                     onMouseEnter={e => { if (!isOpen) e.currentTarget.style.background = '#f0fdf4' }}
                     onMouseLeave={e => { if (!isOpen) e.currentTarget.style.background = 'transparent' }}>
@@ -2307,9 +2322,9 @@ const ExpandedCard = ({ p }) => {
                         <span style={{ color: 'var(--heading)', fontWeight: 600 }}>{p.name}</span>
                       </span>
                     </td>
-                    <td style={{ padding: '13px 18px' }}><span style={{ fontFamily: 'JetBrains Mono, monospace', fontWeight: 700, fontSize: 14, color: p.thru === 0 || p.thru == null ? 'var(--muted)' : scoreColor(p.total) }}>{p.thru === 0 || p.thru == null ? '—' : scoreStr(p.total)}</span></td>
-                    <td style={{ padding: '13px 18px' }}><span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 13, color: p.position === 'CUT' ? 'var(--red)' : p.round == null ? 'var(--muted)' : scoreColor(p.round) }}>{p.position === 'CUT' ? 'CUT' : p.round == null ? '—' : scoreStr(p.round)}</span></td>
-                    <td style={{ padding: '13px 18px' }}><span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 13, color: 'var(--muted)' }}>{p.thru === 18 ? 'F' : p.thru}</span></td>
+                    <td style={{ padding: '13px 18px' }}><span style={{ fontFamily: 'JetBrains Mono, monospace', fontWeight: 700, fontSize: 14, color: scoreColor(p.total) }}>{p.total == null ? 'E' : scoreStr(p.total)}</span></td>
+                    <td style={{ padding: '13px 18px' }}><span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 13, color: p.position === 'CUT' ? 'var(--red)' : p.round == null ? 'var(--muted)' : scoreColor(p.round) }}><span style={{ display: 'inline-block', minWidth: 32, textAlign: 'right' }}>{p.position === 'CUT' ? 'CUT' : p.round == null ? 'E' : scoreStr(p.round)}</span></span></td>
+                    <td style={{ padding: '13px 18px' }}><span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 13, color: 'var(--muted)' }}>{p.thru === 18 ? 'F' : p.thru == null || p.thru === 0 ? '0' : p.thru}</span></td>
                     <td style={{ padding: '13px 18px' }}><span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 13, color: p.sgTotal > 0 ? 'var(--green)' : 'var(--red)', fontWeight: 600 }}>{p.sgTotal > 0 ? '+' : ''}{p.sgTotal}</span></td>
                     <td style={{ padding: '13px 18px' }}><span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 13, color: p.sgApp > 0 ? 'var(--green)' : 'var(--red)' }}>{p.sgApp > 0 ? '+' : ''}{p.sgApp}</span></td>
                     <td style={{ padding: '13px 18px' }}><span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 13, color: p.sgPutt > 0 ? 'var(--green)' : 'var(--red)' }}>{p.sgPutt > 0 ? '+' : ''}{p.sgPutt}</span></td>
@@ -2969,6 +2984,11 @@ useEffect(() => {
               {page === 'leaderboard' && <Leaderboard />}
               {page === 'rankings'    && <ModelRankings />}
               {page === 'settings'    && <Settings user={user} onSignOut={() => supabase.auth.signOut()} />}
+{page === 'barpool' && (<BarPoolOptimizer
+players={players}
+    isMobile={isMobile}
+  />
+)}
             </>
           ) : (
             <FieldPreview tournament={activeTournament} field={field} />
