@@ -556,12 +556,12 @@ async function fetchSchedule() {
 
   const upcoming = data.schedule
     .filter(e => {
-      const start = new Date(e.start_date)
-      const end   = new Date(start.getTime() + 4 * 86400000)
-      return end >= new Date(today)
+      const [y, m, d] = e.start_date.split('-').map(Number)
+      const end = new Date(y, m - 1, d + 4) // end of Sunday
+      return end > new Date(today)
     })
     .sort((a, b) => a.start_date.localeCompare(b.start_date))
-    .slice(0, 8)
+    .slice(0, 9)
     .map((e, i) => {
       const [y, m, d] = e.start_date.split('-').map(Number)
       const start     = new Date(y, m - 1, d)
@@ -576,14 +576,20 @@ async function fetchSchedule() {
         end_date:   end.toISOString().slice(0, 10),
         latitude:   e.latitude,
         longitude:  e.longitude,
-        status:     i === 0 ? 'live' : 'upcoming',
+        status:     (() => {
+  const [y, m, d] = e.start_date.split('-').map(Number)
+  const start = new Date(y, m - 1, d)
+  const end   = new Date(y, m - 1, d + 4) // end of Sunday
+  const now   = new Date()
+  if (now >= start && now < end) return 'live'
+  if (now < start) return 'upcoming'
+  return 'completed'
+})(),
       }
     })
-    .map((e, _, arr) => {
-      const liveDate = arr[0]?.start_date
-      if (e.status !== 'live' && e.start_date === liveDate) return { ...e, status: 'live' }
-      return e
-    })
+    .filter(e => e.status !== 'completed')
+    .slice(0, 8)
+
 
   const completed = data.schedule
     .filter(e => e.status === 'completed' && e.winner !== 'TBD' && e.start_date?.startsWith('2026'))
@@ -708,6 +714,44 @@ async function fetchUpcomingField() {
     owgr_rank: p.owgr_rank || 9999,
     dg_id:     p.dg_id,
   }))
+}
+
+// Fetches pre-tournament predictions + SG data for the upcoming field
+// Used to power CutProbability and StatDeepDive before DFS salaries are released
+async function fetchPreTournamentPlayers() {
+  const [predRes, sgRes, fieldRes] = await Promise.all([
+    dgFetch('preds/pre-tournament', { tour: 'pga', file_format: 'json' }),
+    dgFetch('preds/skill-ratings', { display: 'value', file_format: 'json' }),
+    dgFetch('field-updates', { tour: 'pga', file_format: 'json' }),
+  ])
+  const [predData, sgData, fieldData] = await Promise.all([predRes.json(), sgRes.json(), fieldRes.json()])
+  const countryMap = {}
+  for (const p of (fieldData.field || [])) countryMap[p.dg_id] = p.country
+  const predMap = {}, sgMap = {}
+  for (const p of (predData.baseline || [])) predMap[p.dg_id] = p
+  for (const p of (sgData.players   || [])) sgMap[p.dg_id]   = p
+  return (fieldData.field || []).map(p => {
+    const pred = predMap[p.dg_id] || {}, sg = sgMap[p.dg_id] || {}
+    return {
+      name:      flipName(p.player_name),
+      salary:    0,
+      projPoints: 0,
+      value:     0,
+      stdDev:    0,
+      cutProb:   pred.make_cut != null ? Math.round(pred.make_cut * 100) : 50,
+      winProb:   pred.win    ?? 0,
+      top10Prob: pred.top_10 ?? 0,
+      top5Prob:  pred.top_5  ?? 0,
+      sgTotal:   sg.sg_total != null ? parseFloat(sg.sg_total.toFixed(2)) : null,
+      sgOtt:     sg.sg_ott   != null ? parseFloat(sg.sg_ott.toFixed(2))   : null,
+      sgApp:     sg.sg_app   != null ? parseFloat(sg.sg_app.toFixed(2))   : null,
+      sgArg:     sg.sg_arg   != null ? parseFloat(sg.sg_arg.toFixed(2))   : null,
+      sgPutt:    sg.sg_putt  != null ? parseFloat(sg.sg_putt.toFixed(2))  : null,
+      ownership: 0,
+      dg_id:     p.dg_id,
+      country:   countryMap[p.dg_id] || null,
+    }
+  })
 }
 
 function optimizeLineup(players, cap = 50000, picks = 6, locked = [], excluded = []) {
@@ -849,6 +893,8 @@ function WhosHot({ players, completedEvents }) {
           }
         }
         setForm(map)
+        // Cache for Simulation Lab composite model
+        window.__simFormCache = map
       } catch (e) {
         console.error(e)
         setError('Failed to load form data. Try refreshing.')
@@ -871,9 +917,12 @@ function WhosHot({ players, completedEvents }) {
   const calcHeat = (results) => {
     const played = results.filter(r => r.fin && r.fin !== '' && r.date?.startsWith('2026'))
     if (played.length === 0) return { score: 0, played: [] }
+    const recentFive = played.slice(0, 5)
+    const hasRecentWin = recentFive.some(r => r.fin === '1')
     let weightedScore = 0, totalWeight = 0
     played.forEach((r, i) => {
-      const weight = i < 3 ? 3 : i < 6 ? 2 : 1
+      let weight = i < 3 ? 3 : i < 6 ? 2 : 1
+      if (hasRecentWin && r.fin === '1' && i < 5) weight = 5
       weightedScore += finPoints(r.fin) * weight
       totalWeight   += weight
     })
@@ -911,7 +960,8 @@ function WhosHot({ players, completedEvents }) {
     const results           = form[p.dg_id] || []
     const { score, played } = calcHeat(results)
     const temp              = getTemp(score)
-    return { ...p, heatScore: score, playedEvents: played, temp, eventsPlayed: played.length }
+const finalTemp = played.length === 0 ? { label: 'No Data', color: 'var(--muted)', bg: 'var(--bg)', border: 'var(--border)' } : temp
+    return { ...p, heatScore: score, playedEvents: played, temp: finalTemp, eventsPlayed: played.length }
   }).sort((a, b) => b.heatScore - a.heatScore)
 
   const extremelyHot = playerForm.filter(p => p.heatScore >= 4).length
@@ -1202,7 +1252,7 @@ function LineupBuilder({ players }) {
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             {lineup.map(p => (
               <span key={p.name} style={{ background: 'white', border: '1px solid var(--green-mid)', borderRadius: 8, padding: '6px 14px', fontSize: 13, color: 'var(--heading)', fontWeight: 500 }}>
-                {p.name} <span style={{ color: 'var(--gold)', fontFamily: 'JetBrains Mono, monospace', fontSize: 12 }}>${p.salary.toLocaleString()}</span>
+                <PlayerName name={p.name} country={p.country} /> <span style={{ color: 'var(--gold)', fontFamily: 'JetBrains Mono, monospace', fontSize: 12 }}>${p.salary.toLocaleString()}</span>
               </span>
             ))}
           </div>
@@ -1241,7 +1291,7 @@ function SimPctBadge({ val, thresholds = [10, 5] }) {
     </span>
   )
 }
-function Simulations({ players }) {
+function Simulations({ players, completedEvents = [], activeTournament = null }) {
   const [simCount,      setSimCount]      = useState(2000)
   const [simRunning,    setSimRunning]    = useState(false)
   const [playerSims,    setPlayerSims]    = useState([])
@@ -1265,12 +1315,77 @@ function Simulations({ players }) {
     const counts = {}
     players.forEach(p => { counts[p.name] = { win: 0, top5: 0, top10: 0, top20: 0, madeCut: 0, totalPts: 0 } })
     let done = 0
+
+    // ── Composite skill model ─────────────────────────────────────────────────
+    // Factor 1: SG Total (40%) — raw skill baseline
+    // Factor 2: DataGolf winProb (25%) — bakes in course fit, form, everything
+    // Factor 3: Recent form (20%) — hot players get a boost
+    // Factor 4: Course history (15%) — past Augusta/course finishes
+    // ─────────────────────────────────────────────────────────────────────────
+
+    const maxProj = Math.max(...players.map(p => p.projPoints || 0)) || 80
+
+    // Factor 1: normalize SG Total to a 0-1 scale
+    const sgVals = players.map(p => p.sgTotal).filter(v => v != null)
+    const sgMin = sgVals.length ? Math.min(...sgVals) : -2
+    const sgMax = sgVals.length ? Math.max(...sgVals) : 3
+    const sgScore = (p) => {
+      if (p.sgTotal != null) return (p.sgTotal - sgMin) / (sgMax - sgMin)
+      return p.projPoints > 0 ? (p.projPoints - maxProj * 0.6) / (maxProj * 0.4) : 0.2
+    }
+
+    // Factor 2: DataGolf winProb (already 0-1)
+    const maxWinProb = Math.max(...players.map(p => p.winProb || 0)) || 0.15
+    const winProbScore = (p) => Math.min((p.winProb || 0) / maxWinProb, 1)
+
+    // Factor 3: Recent form — weight recent finishes (last 6 events, recency weighted)
+    const formMap = {}
+    players.forEach(p => { formMap[p.dg_id] = 0.3 }) // default neutral
+    if (completedEvents.length > 0 && window.__simFormCache) {
+      const cache = window.__simFormCache
+      const finPts = (fin) => {
+        if (!fin || fin === 'CUT' || fin === 'WD') return 0
+        const n = parseInt((fin || '').replace('T',''))
+        if (n === 1) return 1.0; if (n <= 3) return 0.85; if (n <= 5) return 0.75
+        if (n <= 10) return 0.6; if (n <= 20) return 0.45; if (n <= 40) return 0.3
+        return 0.2
+      }
+      players.forEach(p => {
+        const results = cache[p.dg_id] || []
+        if (results.length === 0) { formMap[p.dg_id] = 0.3; return }
+        let score = 0, weight = 0
+        results.slice(0, 6).forEach((r, i) => {
+          const w = i === 0 ? 3 : i < 3 ? 2 : 1
+          score += finPts(r.fin) * w
+          weight += w
+        })
+        formMap[p.dg_id] = weight > 0 ? score / weight : 0.3
+      })
+    }
+
+    // Factor 4: Course history score (Augusta or current course)
+    // We use top10Prob as a proxy since it correlates with course fit
+    const maxTop10 = Math.max(...players.map(p => p.top10Prob || 0)) || 0.3
+    const courseScore = (p) => Math.min((p.top10Prob || 0) / maxTop10, 1)
+
+    // Composite skill: weighted blend → convert back to SG-like scale
+    const compositeSkill = (p) => {
+const sg   = sgScore(p)       * 0.20
+      const wp   = winProbScore(p)  * 0.20
+      const form = (formMap[p.dg_id] || 0.3) * 0.35
+      const hist = courseScore(p)   * 0.25
+      const composite = sg + wp + form + hist  // 0 to 1
+      // Compress skill gap using square root — reduces elite player dominance
+      const raw = (composite - 0.5) * 4
+      return raw > 0 ? Math.sqrt(raw) * 1.2 : raw * 0.8
+    }
+
     const runBatch = () => {
       const end = Math.min(done + batchSize, simCount)
       for (let i = done; i < end; i++) {
         const simScores = players.map(p => ({
           name: p.name,
-          score: p.projPoints + randNormal() * (p.projPoints * 0.18)
+          score: compositeSkill(p) + randNormal() * 1.5
         })).sort((a, b) => b.score - a.score)
         const cutLine = Math.floor(simScores.length * 0.65)
         simScores.forEach((p, idx) => {
@@ -1316,7 +1431,7 @@ function Simulations({ players }) {
       const lineupCounts = lineups.map(() => ({ cash: 0, top3: 0, totalScore: 0 }))
       for (let i = 0; i < simCount; i++) {
         const scoreMap = {}
-        players.forEach(p => { scoreMap[p.name] = p.projPoints + randNormal() * (p.projPoints * 0.18) })
+        players.forEach(p => { scoreMap[p.name] = p.projPoints + randNormal() * (p.stdDev > 0 ? p.stdDev : 12) })
         const lineupScores = lineups.map(lineup => lineup.reduce((sum, name) => sum + (scoreMap[name] || 0), 0))
         const sorted = [...lineupScores].sort((a, b) => b - a)
         const cashLine = sorted[Math.floor(sorted.length * 0.5)] ?? 0
@@ -1367,9 +1482,7 @@ function Simulations({ players }) {
 
   return (
     <div>
-      <PageHeader title="Simulation Lab" sub="Monte Carlo tournament simulations powered by DataGolf projections" />
-
-      {/* Tabs */}
+<PageHeader title="Simulation Lab" sub="Monte Carlo simulations powered by PGASharp's proprietary composite model · Blends SG skill, DataGolf win probability, recent form & course fit" />      {/* Tabs */}
       <div style={{ display: 'flex', gap: 0, marginBottom: 24, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden', width: 'fit-content' }}>
         {[['player', '📊 Player Distributions'], ['lineup', '📋 Lineup Evaluator']].map(([id, label]) => (
           <button key={id} onClick={() => setActiveView(id)} style={{ padding: '9px 20px', fontSize: 13, fontWeight: 600, cursor: 'pointer', border: 'none', background: activeView === id ? 'var(--green)' : 'transparent', color: activeView === id ? 'white' : 'var(--muted)', transition: 'all 0.15s' }}>{label}</button>
@@ -1718,7 +1831,7 @@ function Optimizer({ players }) {
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
                   {lineup.map((p, i) => (
                     <div key={i} style={{ background: 'white', borderRadius: 10, padding: '14px 16px', border: '1px solid var(--green-mid)' }}>
-                      <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--heading)', marginBottom: 6 }}>{p.name}</div>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--heading)', marginBottom: 6 }}><PlayerName name={p.name} country={p.country} /></div>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <span style={{ color: 'var(--gold)', fontFamily: 'JetBrains Mono, monospace', fontSize: 12, fontWeight: 600 }}>${p.salary.toLocaleString()}</span>
                         <span style={{ background: 'var(--green-light)', color: 'var(--green-dark)', padding: '2px 8px', borderRadius: 20, fontSize: 11, fontWeight: 600 }}>{p.projPoints} pts</span>
@@ -1748,7 +1861,7 @@ function Optimizer({ players }) {
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
             {result.map((p, i) => (
               <div key={i} style={{ background: 'white', borderRadius: 10, padding: '14px 16px', border: '1px solid var(--green-mid)' }}>
-                <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--heading)', marginBottom: 6 }}>{p.name}</div>
+                <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--heading)', marginBottom: 6 }}><PlayerName name={p.name} country={p.country} /></div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <span style={{ color: 'var(--gold)', fontFamily: 'JetBrains Mono, monospace', fontSize: 12, fontWeight: 600 }}>${p.salary.toLocaleString()}</span>
                   <span style={{ background: 'var(--green-light)', color: 'var(--green-dark)', padding: '2px 8px', borderRadius: 20, fontSize: 11, fontWeight: 600, fontFamily: 'JetBrains Mono, monospace' }}>{p.projPoints} pts</span>
@@ -1988,7 +2101,7 @@ const sgBar = (val, max, min) => {
   )
 }
 
-function Leaderboard() {
+function Leaderboard({ isLive = true }) {
   const [liveData, setLiveData]         = useState([])
   const [eventName, setEventName]       = useState('')
   const [lastUpdated, setLastUpdated]   = useState('')
@@ -2089,7 +2202,9 @@ function Leaderboard() {
     setSelected(p); setActiveRound(null)
   }
 
+
   const scoreColor = (v) => v < 0 ? 'var(--green)' : v > 0 ? 'var(--red)' : 'var(--muted)'
+
 const getEspnScores = (name) => {
     if (espnScores[name]) return espnScores[name]
     const normalize = s => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
@@ -2112,6 +2227,14 @@ const getEspnScores = (name) => {
 
   if (loading) return <Loading />
   if (error)   return <ErrorBox message={error} />
+  if (!isLive) return (
+    <div style={{ padding: '40px 20px', textAlign: 'center' }}>
+      <PageHeader title="Leaderboard" sub="Tournament hasn't started yet" />
+      <div style={{ fontSize: 13, color: 'var(--muted)', marginTop: 12 }}>
+        The leaderboard will go live when the tournament begins.
+      </div>
+    </div>
+  )
 
   const selectedRoundStats = selected && activeRound ? roundData[activeRound]?.[selected.dg_id] : null
 
@@ -2197,7 +2320,7 @@ const ExpandedCard = ({ p }) => {
                   </thead>
                   <tbody>
                     <tr style={{ background: 'white' }}>
-                      <td style={{ padding: '8px 10px', fontWeight: 600, color: 'var(--heading)', fontSize: 11 }}>{p.name.split(' ')[0]}</td>
+                      <td style={{ padding: '8px 10px', fontWeight: 600, color: 'var(--heading)', fontSize: 11 }}>{p.country && <span style={{ fontSize: 11 }}>{countryFlag(p.country)} </span>}{p.name.split(' ')[0]}</td>
                      {front.map(h => (
                         <td key={h.period} style={{ padding: '6px 4px', textAlign: 'center' }}>
                           {h.value != null ? (
@@ -2703,7 +2826,7 @@ function BettingOdds() {
                 <tr key={i} style={{ borderBottom: '1px solid var(--border)', transition: 'background 0.1s' }}
                   onMouseEnter={e => e.currentTarget.style.background = '#f0fdf4'}
                   onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
-                  <td style={{ padding: '12px 18px', fontWeight: 600, color: 'var(--heading)', fontSize: 14 }}>{p.name}</td>
+                  <td style={{ padding: '12px 18px', fontWeight: 600, color: 'var(--heading)', fontSize: 14 }}><PlayerName name={p.name} country={p.country} /></td>
                   <td style={{ padding: '12px 18px' }}>
                     <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 13, fontWeight: 700, color: 'var(--green)' }}>{formatOdds(p.best)}</span>
                   </td>
@@ -2745,6 +2868,7 @@ export default function App() {
   const [completedEvents, setCompletedEvents]   = useState([])
   const [activeTournament, setActiveTournament] = useState(null)
   const [players, setPlayers]                   = useState([])
+  const [preTournamentPlayers, setPreTournamentPlayers] = useState([])
   const [field, setField]                       = useState([])
   const [weatherData, setWeatherData]           = useState({ daily: [], hourlyByDay: {} })
   const [loading, setLoading]                   = useState(true)
@@ -2790,17 +2914,24 @@ useEffect(() => {
   useEffect(() => {
     if (!activeTournament) return
     async function load() {
-      setLoading(true); setError(null); setPlayers([]); setField([]); setWeatherData({ daily: [], hourlyByDay: {} })
+      setLoading(true); setError(null); setPlayers([]); setField([]); setPreTournamentPlayers([]); setWeatherData({ daily: [], hourlyByDay: {} })
       try {
         const weather = await fetchWeather(
           activeTournament.latitude, activeTournament.longitude,
           activeTournament.start_date, activeTournament.end_date
         ).catch(() => ({ daily: [], hourlyByDay: {} }))
         setWeatherData(weather)
-        if (activeTournament.status === 'live') {
-          setPlayers(await fetchLiveData())
-        } else {
-          setField(await fetchUpcomingField())
+        setField(await fetchUpcomingField())
+        // Always try DFS data — DK releases Monday before the event
+        try {
+          const liveData = await fetchLiveData()
+          if (liveData && liveData.length > 0) {
+            setPlayers(liveData)
+          } else {
+            setPreTournamentPlayers(await fetchPreTournamentPlayers())
+          }
+        } catch {
+          setPreTournamentPlayers(await fetchPreTournamentPlayers())
         }
       } catch (err) {
         setError('Failed to load tournament data. Check your connection.')
@@ -2810,7 +2941,7 @@ useEffect(() => {
     }
     load()
   }, [activeTournament?.event_id])
-  const isLive = activeTournament?.status === 'live'
+const isLive = activeTournament?.status === 'live'
   const isMobile = useIsMobile()
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [showLanding, setShowLanding] = useState(() => {
@@ -2867,29 +2998,15 @@ useEffect(() => {
         </div>
 
         {/* Nav */}
-        {isLive && (
-          <div style={{ padding: '12px', flex: 1, overflowY: 'auto' }}>
+        <div style={{ padding: '12px', flex: 1, overflowY: 'auto' }}>
             {/* This Week */}
             <div style={{ padding: '10px 0 12px', borderBottom: '1px solid var(--border)', marginBottom: 10 }}>
               <div style={{ fontSize: 9, color: 'var(--heading)', letterSpacing: 1.5, textTransform: 'uppercase', fontWeight: 600, marginBottom: 6, paddingLeft: 12 }}>This Week</div>
-              {schedule.filter(t => t.status === 'live').length > 1 ? (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                  {schedule.filter(t => t.status === 'live').map(t => (
-                    <button key={t.event_id} onClick={() => { setActiveTournament(t); setSidebarOpen(false) }} style={{
-                      textAlign: 'left', padding: '8px 10px', borderRadius: 8, cursor: 'pointer',
-                      background: activeTournament?.event_id === t.event_id ? 'var(--green-light)' : 'var(--bg)',
-                      border: `1px solid ${activeTournament?.event_id === t.event_id ? 'var(--green-mid)' : 'var(--border)'}`,
-                    }}>
-                      <div style={{ fontSize: 11, fontWeight: 700, color: activeTournament?.event_id === t.event_id ? 'var(--green-dark)' : 'var(--heading)', lineHeight: 1.3, marginBottom: 2 }}>{t.name}</div>
-                      <div style={{ fontSize: 9, color: 'var(--muted)' }}>{t.course?.split('(')[0].trim()}</div>
-                    </button>
-                  ))}
-                </div>
-              ) : (
+              {false ? null : (
                 <div style={{ background: 'var(--green-light)', border: '1px solid var(--green-mid)', borderRadius: 8, padding: '9px 12px', display: 'flex', flexDirection: 'column', gap: 5 }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                     <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--green-dark)', lineHeight: 1.4, flex: 1, paddingRight: 8 }}>{activeTournament?.name}</div>
-                    <span style={{ background: 'var(--green)', color: 'white', fontSize: 8, fontWeight: 800, padding: '3px 7px', borderRadius: 20, letterSpacing: 1, whiteSpace: 'nowrap' }}>● LIVE</span>
+                    {isLive && <span style={{ background: '#dc3545', color: 'white', fontSize: 8, fontWeight: 800, padding: '3px 7px', borderRadius: 20, letterSpacing: 1, whiteSpace: 'nowrap' }}>● LIVE</span>}
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                     <div style={{ fontSize: 10, color: 'var(--green)', fontWeight: 600 }}>{activeTournament?.course?.split('(')[0].trim()}</div>
@@ -2923,9 +3040,8 @@ useEffect(() => {
               </div>
             ))}
           </div>
-        )}
 
- <UpcomingPanel schedule={schedule} isMobile={isMobile} />
+        <UpcomingPanel schedule={schedule} isMobile={isMobile} />
         <div style={{ padding: '12px 16px', borderTop: '1px solid var(--border)', textAlign: 'center' }}>
           <button onClick={() => { setShowTerms(true) }} style={{ background: 'transparent', border: 'none', fontSize: 13, fontWeight: 600, color: 'var(--muted)', cursor: 'pointer', padding: 0 }}>Terms of Service</button>
         </div>
@@ -2957,8 +3073,7 @@ useEffect(() => {
               {activeTournament && (
                 <div style={{ background: 'var(--green-light)', border: '1px solid var(--green-mid)', borderRadius: 8, padding: '4px 10px', display: 'flex', alignItems: 'center', gap: 6 }}>
                   <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--green-dark)' }}>{activeTournament.name.split(' ').slice(0, 2).join(' ')}</span>
-                  <span style={{ background: 'var(--green)', color: 'white', fontSize: 7, fontWeight: 700, padding: '1px 5px', borderRadius: 6 }}>LIVE</span>
-                </div>
+{isLive && <span style={{ background: '#dc3545', color: 'white', fontSize: 8, fontWeight: 800, padding: '3px 7px', borderRadius: 20, letterSpacing: 1, whiteSpace: 'nowrap' }}>● LIVE</span>}                </div>
               )}
               <button onClick={() => { setPage('settings'); setSidebarOpen(false) }} style={{ background: 'transparent', border: 'none', fontSize: 18, cursor: 'pointer', color: 'var(--muted)', padding: '4px' }}>⚙️</button>
             </div>
@@ -2968,30 +3083,26 @@ useEffect(() => {
         <div style={{ padding: isMobile ? '16px 12px' : '40px 44px' }}>
           {showTerms ? <Terms onClose={() => setShowTerms(false)} /> : loading || !activeTournament ? <Loading /> : error ? (
             <ErrorBox message={error} />
-          ) : isLive ? (
-            <>
-              {page === 'value'       && <ValueFinder   players={players} />}
-              {page === 'hot'         && <WhosHot        players={players} completedEvents={completedEvents} />}
-              {page === 'history'     && <CourseHistory  players={players} tournament={activeTournament} />}
-              {page === 'lineup'      && <LineupBuilder  players={players} />}
-              {page === 'own'         && <Ownership      players={players} />}
-              {page === 'optimizer'   && <Optimizer      players={players} />}
+          ) : (
+<>
+              {page === 'value'       && (players.length > 0 ? <ValueFinder   players={players} /> : <FieldPreview tournament={activeTournament} field={field} />)}
+              {page === 'hot'         && <WhosHot        players={players.length > 0 ? players : preTournamentPlayers} completedEvents={completedEvents} />}
+              {page === 'history'     && <CourseHistory  players={players.length > 0 ? players : field.map(p => ({...p, projPoints: 0, salary: 0, value: 0, stdDev: 0, cutProb: 50, winProb: 0, top10Prob: 0, top5Prob: 0, sgTotal: null, sgOtt: null, sgApp: null, sgArg: null, sgPutt: null, ownership: 0}))} tournament={activeTournament} />}
+              {page === 'lineup'      && (players.length > 0 ? <LineupBuilder  players={players} /> : <FieldPreview tournament={activeTournament} field={field} />)}
+              {page === 'own'         && (players.length > 0 ? <Ownership      players={players} /> : <FieldPreview tournament={activeTournament} field={field} />)}
+              {page === 'optimizer'   && (players.length > 0 ? <Optimizer      players={players} /> : <FieldPreview tournament={activeTournament} field={field} />)}
               {page === 'weather'     && <WeatherImpact  weatherData={weatherData} tournament={activeTournament} />}
-              {page === 'cut'         && <CutProbability players={players} />}
-              {page === 'stats'       && <StatDeepDive   players={players} />}
+              {page === 'cut'         && <CutProbability players={players.length > 0 ? players : preTournamentPlayers} />}
+              {page === 'stats'       && <StatDeepDive   players={players.length > 0 ? players : preTournamentPlayers} />}
               {page === 'odds'        && <BettingOdds />}
-              {page === 'simulations' && <Simulations players={players} />}
-              {page === 'leaderboard' && <Leaderboard />}
+              {page === 'simulations' && (players.length > 0 ? <Simulations players={players} completedEvents={completedEvents} activeTournament={activeTournament} /> : preTournamentPlayers.length > 0 ? <Simulations players={preTournamentPlayers} completedEvents={completedEvents} activeTournament={activeTournament} /> : <FieldPreview tournament={activeTournament} field={field} />)}
+              {page === 'leaderboard' && <Leaderboard isLive={isLive} />}
               {page === 'rankings'    && <ModelRankings />}
               {page === 'settings'    && <Settings user={user} onSignOut={() => supabase.auth.signOut()} />}
-{page === 'barpool' && (<BarPoolOptimizer
-players={players}
-    isMobile={isMobile}
-  />
-)}
+              {page === 'barpool'     && <BarPoolOptimizer players={players} isMobile={isMobile} />}
             </>
-          ) : (
-            <FieldPreview tournament={activeTournament} field={field} />
+
+          
           )}
         </div>
         
