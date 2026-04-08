@@ -27,31 +27,48 @@ export default async function handler(req, res) {
               text: `This is a golf bar pool or office pool sheet. Extract ALL information and return ONLY a valid JSON object — no markdown, no explanation, no backticks.
 
 Determine the pool type:
-- GROUP pool: has named groups (Group 1, Group 2, etc.) where you pick ONE player from each group
+- GROUP pool: has named groups where you pick one OR MORE players from each group
 - FREE PICK pool: pick any N players from the full field
 
-Return this exact structure:
+CRITICAL — each group can have a DIFFERENT number of picks. Read carefully:
+
+Step 1: Look at each group name/header for pick counts:
+- "Group Name (2 Players)" → picksPerGroup: 2
+- "Group Name (1 Player)" → picksPerGroup: 1  
+- "Europe (2 Players)" → picksPerGroup: 2
+- No number shown → default to 1
+
+Step 2: Look for blank lines or circles next to player names — count them per group
+
+Step 3: Use math as a sanity check:
+- total picks per entry = sum of all per-group picks
+- if scoring says "best 13 scores" and you have 11 groups (some with 2 picks), that math should add up
+
+Return this EXACT structure — note groups now have their OWN picksPerGroup:
 
 {
   "tournament": "<tournament name>",
   "poolType": "group" or "freepick",
   "scoringType": "<how scoring works>",
   "tiebreaker": "<tiebreaker rule or none>",
-  "notes": "<any other rules>",
+  "notes": "<any other important rules>",
+  "picksPerGroup": <integer: DEFAULT picks per group if not specified per group>,
   "groups": [
     {
-      "name": "Group 1",
-      "players": ["Scottie Scheffler", "Rory McIlroy", "Bryson DeChambeau"]
+      "name": "World Top 5",
+      "picksPerGroup": 1,
+      "players": ["Scottie Scheffler", "Rory McIlroy", "Tommy Fleetwood", "Cameron Young", "Matt Fitzpatrick"]
     },
     {
-      "name": "Group 2", 
-      "players": ["Tommy Fleetwood", "Collin Morikawa", "Cameron Young"]
+      "name": "Europe Ole Ole Ole",
+      "picksPerGroup": 2,
+      "players": ["Harry Hall", "Tyrrell Hatton", "Shane Lowry", "Alex Noren"]
     }
   ],
-  "picks": <integer: for freepick pools, how many players to select. For group pools this equals the number of groups>
+  "picks": <integer: total picks per entry = sum of all groups picksPerGroup>
 }
 
-For group pools, extract EVERY group and ALL player names exactly as written on the sheet.
+For group pools extract EVERY group and ALL player names exactly as written.
 If image is unreadable return: {"error":"unclear"}`
             }
           ]

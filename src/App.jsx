@@ -368,13 +368,13 @@ const NAV = [
   { id: 'leaderboard', label: 'Leaderboard',      icon: '◆' },
   { id: 'rankings',    label: 'Model Rankings',   icon: '◇' },
   { id: 'simulations', label: 'Simulation Lab',   icon: '🎲' },
-  { id: 'barpool', label: 'Bar Pool Optimizer', icon: '🎰' },
+  { id: 'barpool', label: 'AI Pool Analyzer & Picks', icon: '🎰' },
 ]
 const NAV_GROUPS = [
   { label: 'Live',      ids: ['leaderboard', 'rankings'] },
-  { label: 'Tools',     ids: ['hot', 'history', 'weather', 'cut', 'stats'] },
+  { label: 'Data',     ids: ['hot', 'history', 'weather', 'cut', 'stats'] },
   { label: 'DFS Tools', ids: ['optimizer', 'simulations', 'value', 'lineup', 'own'] },
-  { label: 'Pool Tool AI', ids: ['barpool'] },
+  { label: 'Pools', ids: ['barpool'] },
 ]
 
 // ── Hooks & Utilities ──────────────────────────────────────────────
@@ -1057,7 +1057,7 @@ function CourseHistory({ players, tournament }) {
   const [history, setHistory] = useState({})
   const [loading, setLoading] = useState(true)
   const [error, setError]     = useState(null)
-  const years = [2025, 2024, 2023, 2022, 2021]
+  const years = [2025, 2024, 2023, 2022, 2021, 2020, 2019]
 
   useEffect(() => {
     if (!players || players.length === 0) { setLoading(false); return }
@@ -1116,7 +1116,7 @@ function CourseHistory({ players, tournament }) {
 
   return (
     <div>
-      <PageHeader title="Course History" sub={`${tournament.name} · Last 5 years · Sorted by best finish`} />
+      <PageHeader title="Course History" sub={`${tournament.name} · Last 7 years · Sorted by best finish`} />
       <div style={{ display: 'flex', gap: 12, marginBottom: 24, flexWrap: 'wrap' }}>
         <StatCard label="Best Historical" value={bestPlayer?.name.split(' ')[1] || '—'} sub={bestPlayer ? `Best: ${bestFinish(bestPlayer.dg_id) === 1 ? '1st' : `T${bestFinish(bestPlayer.dg_id)}`}` : 'No data'} type="green" />
         <StatCard label="First Timers" value={firstTimers} sub="No history at this course" />
